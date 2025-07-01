@@ -60,9 +60,10 @@ export default function Home() {
   const generateImage = async (promptToGenerate: string) => {
     if (!promptToGenerate.trim()) return;
 
-    // Track which prompt this request is for
+    // Track which prompt and image this request is for
     currentPromptRef.current = promptToGenerate;
     const requestPrompt = promptToGenerate;
+    const requestSelectedImageId = selectedImageId;
 
     setIsGenerating(true);
     try {
@@ -83,9 +84,9 @@ export default function Home() {
         const newImageUrl = result.data.images[0].url;
         setImageUrl(newImageUrl);
 
-        if (selectedImageId) {
-          // Update existing image
-          await updateImage(selectedImageId, requestPrompt, newImageUrl);
+        if (requestSelectedImageId) {
+          // Update the image that was selected when request started
+          await updateImage(requestSelectedImageId, requestPrompt, newImageUrl);
         } else {
           // Create new image
           const newImage = await saveImage(requestPrompt, newImageUrl);
