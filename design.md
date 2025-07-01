@@ -19,19 +19,17 @@ This principle should drive design and technical choices for each feature.
 
 ## Technical considerations
 
-The desired tech stack is a python FastAPI server back end with a typescript React front end, leaning heavily on the HTML canvas element for the interactive portion of the UI.
-
-Deployment can be fast and simple. Vercel is a good option for the front end code and fly.io or heroku is good for the server. Vercel's edge functions could potentially replace a full server, but a full server is preferred. Data should be stored in a persisted database. Postgres or even sqlite are valid options.
+The initial desired tech stack was a deployed python FastAPI server back end with a typescript React front end, leaning heavily on the HTML canvas element for the interactive portion of the UI. However, upon exploration, Fal.id provides a helpful SDK that primarily supports javascript server side frameworks like next.js. Next.js works well with Vercel, which supports both front end code deployment and next.js edge functions. While less robust than a dedicated server, these should suffice for the server side requirements for Fal.ai authentication and the other minimal server functionality. Vercel also integrates seamlessly with data storage providers like Supabase, making a separate back end server less necessary for the scope of this project. In the interest of simplifying deployment infrastructure and streamlining development, the chosen technical stack is fully TypeScript using hosting services like Vercel and Supabase.
 
 AI generation will be provided by OpenAI for prompt variation and fal.ai for fast image generation.
 
 Both AI services require API keys which should be treated as secrets and therefore cannot be used directly in the client-side code. This requires some form of proxying to a server.
 
-For OpenAI, the client can send requests to the server which can make authenticated requests to OpenAI and return the results to the client. These could be streamed, though the use case likely doesn't require that.
+For OpenAI, the client can send requests to the server which can make authenticated requests to OpenAI and return the results to the client. These could be streamed, though the use case likely doesn't require that. Given the tech stack decision, these requests still likely go through Vercel edge functions, or Vercel's AI package.
 
-For Fal, latency should be as low as possible. Fal offers solutions to address this via their SDK and proxy server concept. Simply put, the proxy sever handles authentication that provides the client with a short-lived web token so that the client can interact over websockets directly with Fal's optimized inference servers. Using their SDK is recommended to handle the non-differentiating heavy lifting of token upkeep and streaming connection management. However, they only provide proxy server implementations for node.js based servers, while the desired back end stack is Python. One option is to implement the proxy server in Python, which should be straightforward. Another option is to use Vercel's edge functions for the proxy server to get that behavior for free, but route other persistence functionality through the main Python server, though that complicates authentication.
+For Fal, latency should be as low as possible. Fal offers solutions to address this via their SDK and proxy server concept. Simply put, the proxy sever handles authentication that provides the client with a short-lived web token so that the client can interact over websockets directly with Fal's optimized inference servers. Using their SDK is recommended to handle the non-differentiating heavy lifting of token upkeep and streaming connection management. As discussed, for the sake of expediency, their out of the box next.js approach will be used instead of implementing and hosting a proxy server in Python.
 
-Authentication was not required in the project specs. However, given that the back end servers proxy AI services with real world costs, controlling access is prudent. Consider protecting server route access and implementing basic authentication at a minimum.
+Authentication was not required in the project specs. However, given that the back end servers proxy AI services with real world costs, controlling access is prudent. Consider protecting server route access and implementing basic authentication at a minimum. Vercel may cover this automatically. Furthermore, Supabase offers simple user authentication if desired.
 
 
 ## Product management considerations
