@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { fal } from "@fal-ai/client";
-import { saveImage, loadLatestImage } from "../lib/images";
+import { saveImage, loadLatestImage, updateImage } from "../lib/images";
 
 fal.config({
   proxyUrl: "/api/fal/proxy",
@@ -11,6 +11,7 @@ fal.config({
 export default function Home() {
   const [prompt, setPrompt] = useState("");
   const [imageUrl, setImageUrl] = useState("");
+  const [selectedImageId, setSelectedImageId] = useState<string | null>(null);
   const [isGenerating, setIsGenerating] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -21,6 +22,7 @@ export default function Home() {
         if (latestImage) {
           setPrompt(latestImage.prompt);
           setImageUrl(latestImage.image_url);
+          setSelectedImageId(latestImage.id);
         }
       } catch (error) {
         console.error("Error loading previous image:", error);
@@ -49,8 +51,16 @@ export default function Home() {
         const newImageUrl = result.data.images[0].url;
         setImageUrl(newImageUrl);
         
-        // Save to database
-        await saveImage(prompt, newImageUrl);
+        if (selectedImageId) {
+          // Update existing image
+          await updateImage(selectedImageId, prompt, newImageUrl);
+        } else {
+          // Create new image
+          const newImage = await saveImage(prompt, newImageUrl);
+          if (newImage) {
+            setSelectedImageId(newImage.id);
+          }
+        }
       }
     } catch (error) {
       console.error("Error generating image:", error);

@@ -50,6 +50,31 @@ export async function loadLatestImage(): Promise<Image | null> {
   }
 }
 
+export async function updateImage(id: string, prompt: string, imageUrl: string): Promise<Image | null> {
+  try {
+    const { data, error } = await supabase
+      .from('images')
+      .update({ 
+        prompt,
+        image_url: imageUrl,
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', id)
+      .select()
+      .single()
+
+    if (error) {
+      console.error('Error updating image:', error)
+      return null
+    }
+
+    return data
+  } catch (error) {
+    console.error('Error updating image:', error)
+    return null
+  }
+}
+
 export async function updateImagePosition(id: string, x: number, y: number): Promise<boolean> {
   try {
     const { error } = await supabase
