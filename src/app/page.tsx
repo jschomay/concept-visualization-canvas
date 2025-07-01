@@ -1,7 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { fal } from "@fal-ai/client";
+import { saveImage, loadLatestImage } from "../lib/images";
 
 fal.config({
   proxyUrl: "/api/fal/proxy",
@@ -11,6 +12,25 @@ export default function Home() {
   const [prompt, setPrompt] = useState("");
   const [imageUrl, setImageUrl] = useState("");
   const [isGenerating, setIsGenerating] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    const loadPreviousImage = async () => {
+      try {
+        const latestImage = await loadLatestImage();
+        if (latestImage) {
+          setPrompt(latestImage.prompt);
+          setImageUrl(latestImage.image_url);
+        }
+      } catch (error) {
+        console.error("Error loading previous image:", error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    loadPreviousImage();
+  }, []);
 
   const generateImage = async () => {
     if (!prompt.trim()) return;
@@ -26,7 +46,11 @@ export default function Home() {
       });
 
       if (result.data.images && result.data.images[0]) {
-        setImageUrl(result.data.images[0].url);
+        const newImageUrl = result.data.images[0].url;
+        setImageUrl(newImageUrl);
+        
+        // Save to database
+        await saveImage(prompt, newImageUrl);
       }
     } catch (error) {
       console.error("Error generating image:", error);
@@ -34,6 +58,18 @@ export default function Home() {
       setIsGenerating(false);
     }
   };
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen p-8 pb-20 gap-16 sm:p-20">
+        <main className="max-w-4xl mx-auto">
+          <div className="flex justify-center items-center h-64">
+            <div className="text-lg">Loading...</div>
+          </div>
+        </main>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen p-8 pb-20 gap-16 sm:p-20">
