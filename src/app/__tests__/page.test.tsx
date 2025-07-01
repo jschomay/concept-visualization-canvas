@@ -54,17 +54,15 @@ describe('Image Generation Logic', () => {
         expect(screen.queryByText('Loading...')).not.toBeInTheDocument()
       })
 
-      // Type a prompt and generate
-      const input = screen.getByPlaceholderText('Enter your prompt...')
-      const generateButton = screen.getByText('Generate')
+      // Type a prompt (auto-generation happens after 500ms debounce)
+      const input = screen.getByPlaceholderText('Type to generate an image...')
       
       fireEvent.change(input, { target: { value: 'test prompt' } })
-      fireEvent.click(generateButton)
 
-      // Wait for generation to complete
+      // Wait for debounced generation to complete
       await waitFor(() => {
         expect(imagesLib.saveImage).toHaveBeenCalledWith('test prompt', 'https://example.com/generated-image.jpg')
-      })
+      }, { timeout: 1000 })
 
       // Verify updateImage was NOT called
       expect(imagesLib.updateImage).not.toHaveBeenCalled()
@@ -108,21 +106,19 @@ describe('Image Generation Logic', () => {
         expect(input).toBeInTheDocument()
       })
 
-      // Change prompt and generate
+      // Change prompt (auto-generation happens after 500ms debounce)
       const input = screen.getByDisplayValue('existing prompt')
-      const generateButton = screen.getByText('Generate')
       
       fireEvent.change(input, { target: { value: 'updated prompt' } })
-      fireEvent.click(generateButton)
 
-      // Wait for generation to complete
+      // Wait for debounced generation to complete
       await waitFor(() => {
         expect(imagesLib.updateImage).toHaveBeenCalledWith(
           'existing-image-id', 
           'updated prompt', 
           'https://example.com/generated-image.jpg'
         )
-      })
+      }, { timeout: 1000 })
 
       // Verify saveImage was NOT called
       expect(imagesLib.saveImage).not.toHaveBeenCalled()

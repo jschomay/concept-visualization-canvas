@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { fal } from "@fal-ai/client";
 import { saveImage, loadLatestImage, updateImage } from "../lib/images";
 
@@ -14,6 +14,8 @@ export default function Home() {
   const [selectedImageId, setSelectedImageId] = useState<string | null>(null);
   const [isGenerating, setIsGenerating] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+  const currentPromptRef = useRef<string>("");
+  const timeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
     const loadPreviousImage = async () => {
@@ -34,29 +36,59 @@ export default function Home() {
     loadPreviousImage();
   }, []);
 
-  const generateImage = async () => {
-    if (!prompt.trim()) return;
+  const handlePromptChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const newPrompt = e.target.value;
+    setPrompt(newPrompt);
+    
+    // Clear existing timeout
+    if (timeoutRef.current) {
+      clearTimeout(timeoutRef.current);
+    }
+    
+    // Don't generate for empty prompts
+    if (!newPrompt.trim()) {
+      setIsGenerating(false);
+      return;
+    }
+    
+    // Set new timeout for generation
+    timeoutRef.current = setTimeout(() => {
+      generateImage(newPrompt);
+    }, 500);
+  };
+
+  const generateImage = async (promptToGenerate: string) => {
+    if (!promptToGenerate.trim()) return;
+
+    // Track which prompt this request is for
+    currentPromptRef.current = promptToGenerate;
+    const requestPrompt = promptToGenerate;
 
     setIsGenerating(true);
     try {
       const result = await fal.subscribe("fal-ai/flux/dev", {
         input: {
-          prompt,
+          prompt: requestPrompt,
           image_size: "square",
         },
         pollInterval: 500,
       });
 
+      // Ignore stale responses
+      if (currentPromptRef.current !== requestPrompt) {
+        return;
+      }
+
       if (result.data.images && result.data.images[0]) {
         const newImageUrl = result.data.images[0].url;
         setImageUrl(newImageUrl);
-        
+
         if (selectedImageId) {
           // Update existing image
-          await updateImage(selectedImageId, prompt, newImageUrl);
+          await updateImage(selectedImageId, requestPrompt, newImageUrl);
         } else {
           // Create new image
-          const newImage = await saveImage(prompt, newImageUrl);
+          const newImage = await saveImage(requestPrompt, newImageUrl);
           if (newImage) {
             setSelectedImageId(newImage.id);
           }
@@ -65,7 +97,10 @@ export default function Home() {
     } catch (error) {
       console.error("Error generating image:", error);
     } finally {
-      setIsGenerating(false);
+      // Only clear loading if this is still the current request
+      if (currentPromptRef.current === requestPrompt) {
+        setIsGenerating(false);
+      }
     }
   };
 
@@ -87,22 +122,17 @@ export default function Home() {
         <h1 className="text-4xl font-bold text-center mb-8">AI Image Generator</h1>
 
         <div className="space-y-6">
-          <div className="flex gap-4">
+          <div className="space-y-2">
             <input
               type="text"
               value={prompt}
-              onChange={(e) => setPrompt(e.target.value)}
-              placeholder="Enter your prompt..."
-              className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-              onKeyDown={(e) => e.key === "Enter" && generateImage()}
+              onChange={handlePromptChange}
+              placeholder="Type to generate an image..."
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
-            <button
-              onClick={generateImage}
-              disabled={isGenerating || !prompt.trim()}
-              className="px-6 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {isGenerating ? "Generating..." : "Generate"}
-            </button>
+            {isGenerating && (
+              <div className="text-sm text-gray-500 text-center">Generating...</div>
+            )}
           </div>
 
           {imageUrl && (

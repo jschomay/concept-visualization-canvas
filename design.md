@@ -62,11 +62,19 @@ Entering a prompt generates an image.
 Refreshing the page maintains the image and associated prompt.
 
 Other considerations:
-Include some form of authentication when entering the site.
-CURL-ing any exposed server routes should return 403s.
+Include some form of authentication when entering the site. (deferred)
+CURL-ing any exposed server routes should return 403s. (deferred)
 Image generation should be nearly instantaneous.
+Handle the initial empty state.
 
-### Story 2: TBD
+
+### Story 2: User sees generated images as they type
+
+Editing the text prompt updates the generated image while typing.
+
+Consider:
+Debouncing
+Race conditions
 
 
 
