@@ -92,3 +92,22 @@ export async function updateImagePosition(id: string, x: number, y: number): Pro
     return false
   }
 }
+
+export async function deleteImage(id: string): Promise<boolean> {
+  try {
+    const { error } = await supabase
+      .from('images')
+      .delete()
+      .eq('id', id)
+
+    if (error) {
+      console.error('Error deleting image:', error)
+      return false
+    }
+
+    return true
+  } catch (error) {
+    console.error('Error deleting image:', error)
+    return false
+  }
+}

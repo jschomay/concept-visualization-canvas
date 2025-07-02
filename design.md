@@ -92,6 +92,13 @@ Hovering over a generated image reveals a "clone" button.
 When clicked, a copy of the image appears to the right.
 Either image can be selected, indicated visually and by the input changing to the prompt associated with that image.
 Editing the prompt will update the image it applies to.
+Page refreshes preserve both images.
+
+### Story 3: User can delete images
+
+Hovering over an image shows a "delete" button.
+When clicked, the image is removed.
+Refreshing shows the image is still gone.
 
 
 ## Further exploration

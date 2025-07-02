@@ -8,6 +8,7 @@ jest.mock('../../lib/images', () => ({
   saveImage: jest.fn(),
   loadAllImages: jest.fn(),
   updateImage: jest.fn(),
+  deleteImage: jest.fn(),
 }))
 
 // Mock fal.ai client
@@ -202,6 +203,189 @@ describe('Image Generation Logic', () => {
       })
 
       consoleSpy.mockRestore()
+    })
+  })
+
+  describe('Delete functionality', () => {
+    beforeEach(() => {
+      // Mock existing images array with multiple images
+      ;(imagesLib.loadAllImages as jest.Mock).mockResolvedValue([
+        {
+          id: 'image-1',
+          prompt: 'first image',
+          image_url: 'https://example.com/image-1.jpg',
+          position_x: 0,
+          position_y: 0,
+          created_at: '2023-01-01T00:00:00Z',
+          updated_at: '2023-01-01T00:00:00Z',
+        },
+        {
+          id: 'image-2',
+          prompt: 'second image',
+          image_url: 'https://example.com/image-2.jpg',
+          position_x: 0,
+          position_y: 0,
+          created_at: '2023-01-01T00:00:01Z',
+          updated_at: '2023-01-01T00:00:01Z',
+        }
+      ])
+    })
+
+    it('should delete image and remove from UI', async () => {
+      // Mock successful delete
+      ;(imagesLib.deleteImage as jest.Mock).mockResolvedValue(true)
+
+      render(<Home />)
+      
+      // Wait for loading to complete
+      await waitFor(() => {
+        expect(screen.queryByText('Loading...')).not.toBeInTheDocument()
+      })
+
+      // Verify both images are loaded
+      await waitFor(() => {
+        expect(screen.getByAltText('first image')).toBeInTheDocument()
+        expect(screen.getByAltText('second image')).toBeInTheDocument()
+      })
+
+      // Find and click delete button on first image
+      const deleteButtons = screen.getAllByTitle('Delete image')
+      fireEvent.click(deleteButtons[0])
+
+      // Wait for delete to complete
+      await waitFor(() => {
+        expect(imagesLib.deleteImage).toHaveBeenCalledWith('image-1')
+      })
+
+      // Verify first image is removed from UI
+      await waitFor(() => {
+        expect(screen.queryByAltText('first image')).not.toBeInTheDocument()
+        expect(screen.getByAltText('second image')).toBeInTheDocument()
+      })
+    })
+
+    it('should handle deleting selected image by selecting another', async () => {
+      // Mock successful delete
+      ;(imagesLib.deleteImage as jest.Mock).mockResolvedValue(true)
+
+      render(<Home />)
+      
+      // Wait for loading to complete (first image auto-selected)
+      await waitFor(() => {
+        expect(screen.queryByText('Loading...')).not.toBeInTheDocument()
+      })
+
+      // Verify first image is selected (prompt in input)
+      await waitFor(() => {
+        const input = screen.getByDisplayValue('first image')
+        expect(input).toBeInTheDocument()
+      })
+
+      // Delete the selected image
+      const deleteButtons = screen.getAllByTitle('Delete image')
+      fireEvent.click(deleteButtons[0])
+
+      // Wait for delete and selection update
+      await waitFor(() => {
+        expect(imagesLib.deleteImage).toHaveBeenCalledWith('image-1')
+      })
+
+      // Verify second image becomes selected
+      await waitFor(() => {
+        const input = screen.getByDisplayValue('second image')
+        expect(input).toBeInTheDocument()
+      })
+    })
+
+    it('should clear prompt when deleting last image', async () => {
+      // Mock only one image
+      ;(imagesLib.loadAllImages as jest.Mock).mockResolvedValue([{
+        id: 'only-image',
+        prompt: 'only image',
+        image_url: 'https://example.com/only-image.jpg',
+        position_x: 0,
+        position_y: 0,
+        created_at: '2023-01-01T00:00:00Z',
+        updated_at: '2023-01-01T00:00:00Z',
+      }])
+      
+      // Mock successful delete
+      ;(imagesLib.deleteImage as jest.Mock).mockResolvedValue(true)
+
+      render(<Home />)
+      
+      // Wait for loading and verify image is selected
+      await waitFor(() => {
+        expect(screen.queryByText('Loading...')).not.toBeInTheDocument()
+        const input = screen.getByDisplayValue('only image')
+        expect(input).toBeInTheDocument()
+      })
+
+      // Delete the only image
+      const deleteButton = screen.getByTitle('Delete image')
+      fireEvent.click(deleteButton)
+
+      // Wait for delete to complete
+      await waitFor(() => {
+        expect(imagesLib.deleteImage).toHaveBeenCalledWith('only-image')
+      })
+
+      // Verify prompt is cleared and no images shown
+      await waitFor(() => {
+        const input = screen.getByPlaceholderText('Type to generate an image...')
+        expect(input).toHaveValue('')
+        expect(screen.queryByAltText('only image')).not.toBeInTheDocument()
+      })
+    })
+
+    it('should handle delete errors gracefully', async () => {
+      // Mock delete failure
+      ;(imagesLib.deleteImage as jest.Mock).mockRejectedValue(new Error('Database error'))
+      
+      const consoleSpy = jest.spyOn(console, 'error').mockImplementation()
+
+      render(<Home />)
+      
+      await waitFor(() => {
+        expect(screen.queryByText('Loading...')).not.toBeInTheDocument()
+      })
+
+      const deleteButtons = screen.getAllByTitle('Delete image')
+      fireEvent.click(deleteButtons[0])
+
+      // Wait for error to be logged
+      await waitFor(() => {
+        expect(consoleSpy).toHaveBeenCalledWith('Error deleting image:', expect.any(Error))
+      })
+
+      // Verify images are still present (delete failed)
+      expect(screen.getByAltText('first image')).toBeInTheDocument()
+      expect(screen.getByAltText('second image')).toBeInTheDocument()
+
+      consoleSpy.mockRestore()
+    })
+
+    it('should handle delete when database returns false', async () => {
+      // Mock delete returning false (failed but no exception)
+      ;(imagesLib.deleteImage as jest.Mock).mockResolvedValue(false)
+
+      render(<Home />)
+      
+      await waitFor(() => {
+        expect(screen.queryByText('Loading...')).not.toBeInTheDocument()
+      })
+
+      const deleteButtons = screen.getAllByTitle('Delete image')
+      fireEvent.click(deleteButtons[0])
+
+      // Wait for delete attempt
+      await waitFor(() => {
+        expect(imagesLib.deleteImage).toHaveBeenCalledWith('image-1')
+      })
+
+      // Verify images are still present (delete failed)
+      expect(screen.getByAltText('first image')).toBeInTheDocument()
+      expect(screen.getByAltText('second image')).toBeInTheDocument()
     })
   })
 })

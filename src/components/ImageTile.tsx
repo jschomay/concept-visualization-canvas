@@ -1,17 +1,23 @@
 import { Image } from '../lib/images'
-import { Copy } from 'lucide-react'
+import { Copy, Trash2 } from 'lucide-react'
 
 interface ImageTileProps {
   image: Image
   isSelected: boolean
   onSelect: (imageId: string) => void
   onClone: (imageId: string) => void
+  onDelete: (imageId: string) => void
 }
 
-export default function ImageTile({ image, isSelected, onSelect, onClone }: ImageTileProps) {
+export default function ImageTile({ image, isSelected, onSelect, onClone, onDelete }: ImageTileProps) {
   const handleCloneClick = (e: React.MouseEvent) => {
     e.stopPropagation()
     onClone(image.id)
+  }
+
+  const handleDeleteClick = (e: React.MouseEvent) => {
+    e.stopPropagation()
+    onDelete(image.id)
   }
 
   return (
@@ -29,7 +35,16 @@ export default function ImageTile({ image, isSelected, onSelect, onClone }: Imag
         className="w-full h-auto"
       />
 
-      {/* Clone button - visible on hover */}
+      {/* Delete button - visible on hover, top-left */}
+      <button
+        className="absolute top-2 left-2 bg-white bg-opacity-90 hover:bg-red-500 hover:text-white rounded-full p-2 opacity-0 group-hover:opacity-100 transition-all cursor-pointer"
+        onClick={handleDeleteClick}
+        title="Delete image"
+      >
+        <Trash2 size={16} />
+      </button>
+
+      {/* Clone button - visible on hover, top-right */}
       <button
         className="absolute top-2 right-2 bg-white bg-opacity-90 hover:bg-gray-200 rounded-full p-2 opacity-0 group-hover:opacity-100 transition-all cursor-pointer"
         onClick={handleCloneClick}

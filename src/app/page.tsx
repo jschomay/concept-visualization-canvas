@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from "react";
 import { fal } from "@fal-ai/client";
-import { saveImage, loadAllImages, updateImage, Image } from "../lib/images";
+import { saveImage, loadAllImages, updateImage, deleteImage, Image } from "../lib/images";
 import ImageTile from "../components/ImageTile";
 
 fal.config({
@@ -85,6 +85,37 @@ export default function Home() {
       }
     } catch (error) {
       console.error('Error cloning image:', error);
+    }
+  };
+
+  const handleDelete = async (imageId: string) => {
+    try {
+      const success = await deleteImage(imageId);
+      if (success) {
+        // Remove from local state
+        setImagesMap(prev => {
+          const newMap = new Map(prev);
+          newMap.delete(imageId);
+          return newMap;
+        });
+        
+        // If deleted image was selected, handle selection
+        if (selectedImageId === imageId) {
+          const remainingImages = Array.from(imagesMap.values()).filter(img => img.id !== imageId);
+          if (remainingImages.length > 0) {
+            // Select the most recent remaining image
+            const nextImage = remainingImages[0];
+            setSelectedImageId(nextImage.id);
+            setPrompt(nextImage.prompt);
+          } else {
+            // No images left, clear selection and prompt
+            setSelectedImageId(null);
+            setPrompt('');
+          }
+        }
+      }
+    } catch (error) {
+      console.error('Error deleting image:', error);
     }
   };
 
@@ -179,6 +210,7 @@ export default function Home() {
                   isSelected={selectedImageId === image.id}
                   onSelect={handleImageSelect}
                   onClone={handleClone}
+                  onDelete={handleDelete}
                 />
               ))}
             </div>
