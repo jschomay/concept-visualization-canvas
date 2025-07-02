@@ -25,28 +25,23 @@ export async function saveImage(prompt: string, imageUrl: string): Promise<Image
   }
 }
 
-export async function loadLatestImage(): Promise<Image | null> {
+
+export async function loadAllImages(): Promise<Image[]> {
   try {
     const { data, error } = await supabase
       .from('images')
       .select('*')
       .order('created_at', { ascending: false })
-      .limit(1)
-      .single()
 
     if (error) {
-      if (error.code === 'PGRST116') {
-        // No rows returned, which is fine for first time users
-        return null
-      }
-      console.error('Error loading latest image:', error)
-      return null
+      console.error('Error loading images:', error)
+      return []
     }
 
-    return data
+    return data || []
   } catch (error) {
-    console.error('Error loading latest image:', error)
-    return null
+    console.error('Error loading images:', error)
+    return []
   }
 }
 
@@ -54,7 +49,7 @@ export async function updateImage(id: string, prompt: string, imageUrl: string):
   try {
     const { data, error } = await supabase
       .from('images')
-      .update({ 
+      .update({
         prompt,
         image_url: imageUrl,
         updated_at: new Date().toISOString()
@@ -79,8 +74,8 @@ export async function updateImagePosition(id: string, x: number, y: number): Pro
   try {
     const { error } = await supabase
       .from('images')
-      .update({ 
-        position_x: x, 
+      .update({
+        position_x: x,
         position_y: y,
         updated_at: new Date().toISOString()
       })

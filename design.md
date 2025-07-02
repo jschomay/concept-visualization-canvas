@@ -19,7 +19,17 @@ This principle should drive design and technical choices for each feature.
 
 ## Technical considerations
 
-The initial desired tech stack was a deployed python FastAPI server back end with a typescript React front end, leaning heavily on the HTML canvas element for the interactive portion of the UI. However, upon exploration, Fal.id provides a helpful SDK that primarily supports javascript server side frameworks like next.js. Next.js works well with Vercel, which supports both front end code deployment and next.js edge functions. While less robust than a dedicated server, these should suffice for the server side requirements for Fal.ai authentication and the other minimal server functionality. Vercel also integrates seamlessly with data storage providers like Supabase, making a separate back end server less necessary for the scope of this project. In the interest of simplifying deployment infrastructure and streamlining development, the chosen technical stack is fully TypeScript using hosting services like Vercel and Supabase.
+### Stack
+
+The initial desired tech stack was a deployed python FastAPI server back end with a typescript React front end. However, upon exploration, Fal.ai provides a helpful SDK that works out of the box with javascript server side frameworks like next.js. Next.js works well with Vercel, which supports both front end code deployment, and next.js edge functions for serverless needs.
+
+While less robust than a dedicated server, edge functions should suffice for the needs of this project. Vercel also integrates seamlessly with data storage providers like Supabase, making a separate back end server less necessary for the scope of this project. In the interest of simplifying deployment infrastructure and streamlining development, the chosen technical stack is fully TypeScript using hosting services like Vercel and Supabase.
+
+### UI
+
+Originally, HTML Canvas was desired for the heavy UI interactions, especially considering likely feature requests like a pan-able, zoom-able canvas. However, this this has down sides too and proves technically challenging unless using a dedicated canvas UI library. In the interest of expediency and the scope of this project, standard React elements with absolute CSS position will be used instead.
+
+### Authentication
 
 AI generation will be provided by OpenAI for prompt variation and fal.ai for fast image generation.
 
@@ -76,6 +86,12 @@ Consider:
 Debouncing
 Race conditions
 
+### Story 3: User can clone images
+
+Hovering over a generated image reveals a "clone" button.
+When clicked, a copy of the image appears to the right.
+Either image can be selected, indicated visually and by the input changing to the prompt associated with that image.
+Editing the prompt will update the image it applies to.
 
 
 ## Further exploration

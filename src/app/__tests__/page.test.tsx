@@ -6,7 +6,7 @@ import Home from '../page'
 // Mock the images lib
 jest.mock('../../lib/images', () => ({
   saveImage: jest.fn(),
-  loadLatestImage: jest.fn(),
+  loadAllImages: jest.fn(),
   updateImage: jest.fn(),
 }))
 
@@ -33,8 +33,8 @@ describe('Image Generation Logic', () => {
 
   describe('New image case (no existing image)', () => {
     beforeEach(() => {
-      // Mock no existing image
-      ;(imagesLib.loadLatestImage as jest.Mock).mockResolvedValue(null)
+      // Mock no existing images
+      ;(imagesLib.loadAllImages as jest.Mock).mockResolvedValue([])
       ;(imagesLib.saveImage as jest.Mock).mockResolvedValue({
         id: 'new-image-id',
         prompt: 'test prompt',
@@ -71,8 +71,8 @@ describe('Image Generation Logic', () => {
 
   describe('Existing image case (selectedImageId exists)', () => {
     beforeEach(() => {
-      // Mock existing image
-      ;(imagesLib.loadLatestImage as jest.Mock).mockResolvedValue({
+      // Mock existing images array
+      ;(imagesLib.loadAllImages as jest.Mock).mockResolvedValue([{
         id: 'existing-image-id',
         prompt: 'existing prompt',
         image_url: 'https://example.com/existing-image.jpg',
@@ -80,7 +80,7 @@ describe('Image Generation Logic', () => {
         position_y: 0,
         created_at: '2023-01-01T00:00:00Z',
         updated_at: '2023-01-01T00:00:00Z',
-      })
+      }])
       ;(imagesLib.updateImage as jest.Mock).mockResolvedValue({
         id: 'existing-image-id',
         prompt: 'updated prompt',
@@ -122,6 +122,86 @@ describe('Image Generation Logic', () => {
 
       // Verify saveImage was NOT called
       expect(imagesLib.saveImage).not.toHaveBeenCalled()
+    })
+  })
+
+  describe('Clone functionality', () => {
+    beforeEach(() => {
+      // Mock existing image to clone
+      ;(imagesLib.loadAllImages as jest.Mock).mockResolvedValue([{
+        id: 'original-image-id',
+        prompt: 'original prompt',
+        image_url: 'https://example.com/original-image.jpg',
+        position_x: 0,
+        position_y: 0,
+        created_at: '2023-01-01T00:00:00Z',
+        updated_at: '2023-01-01T00:00:00Z',
+      }])
+    })
+
+    it('should clone image with correct data and auto-select it', async () => {
+      // Mock the cloned image response
+      ;(imagesLib.saveImage as jest.Mock).mockResolvedValue({
+        id: 'cloned-image-id',
+        prompt: 'original prompt', // Same prompt as original
+        image_url: 'https://example.com/original-image.jpg', // Same URL
+        position_x: 0,
+        position_y: 0,
+        created_at: '2023-01-01T00:00:01Z',
+        updated_at: '2023-01-01T00:00:01Z',
+      })
+
+      render(<Home />)
+      
+      // Wait for loading to complete and original image to load
+      await waitFor(() => {
+        expect(screen.queryByText('Loading...')).not.toBeInTheDocument()
+      })
+
+      // Find the clone button (should be hidden initially, visible on hover)
+      const imageContainer = screen.getByRole('img').closest('div')
+      expect(imageContainer).toBeInTheDocument()
+      
+      // Find and click the clone button
+      const cloneButton = screen.getByTitle('Clone image')
+      fireEvent.click(cloneButton)
+
+      // Wait for clone operation to complete
+      await waitFor(() => {
+        expect(imagesLib.saveImage).toHaveBeenCalledWith(
+          'original prompt',
+          'https://example.com/original-image.jpg'
+        )
+      })
+
+      // Verify the cloned image was "auto-selected" by checking the prompt input
+      await waitFor(() => {
+        const input = screen.getByDisplayValue('original prompt')
+        expect(input).toBeInTheDocument()
+      })
+    })
+
+    it('should handle clone errors gracefully', async () => {
+      // Mock clone failure
+      ;(imagesLib.saveImage as jest.Mock).mockRejectedValue(new Error('Database error'))
+      
+      const consoleSpy = jest.spyOn(console, 'error').mockImplementation()
+
+      render(<Home />)
+      
+      await waitFor(() => {
+        expect(screen.queryByText('Loading...')).not.toBeInTheDocument()
+      })
+
+      const cloneButton = screen.getByTitle('Clone image')
+      fireEvent.click(cloneButton)
+
+      // Wait for error to be logged
+      await waitFor(() => {
+        expect(consoleSpy).toHaveBeenCalledWith('Error cloning image:', expect.any(Error))
+      })
+
+      consoleSpy.mockRestore()
     })
   })
 })
