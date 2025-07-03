@@ -100,6 +100,15 @@ Hovering over an image shows a "delete" button.
 When clicked, the image is removed.
 Refreshing shows the image is still gone.
 
+### Story 4: User can organize images organically
+
+Dragging an image moves it to any location on the page.
+Refreshing preserves the position.
+
+Considerations:
+Dragging bounds
+Cloning near bounds
+
 
 ## Further exploration
 

@@ -9,6 +9,7 @@ jest.mock('../../lib/images', () => ({
   loadAllImages: jest.fn(),
   updateImage: jest.fn(),
   deleteImage: jest.fn(),
+  updateImagePosition: jest.fn(),
 }))
 
 // Mock fal.ai client
@@ -24,12 +25,22 @@ describe('Image Generation Logic', () => {
     // Reset all mocks before each test
     jest.clearAllMocks()
     
+    // Mock window.innerWidth for consistent test results
+    Object.defineProperty(window, 'innerWidth', {
+      writable: true,
+      configurable: true,
+      value: 1024,
+    })
+    
     // Mock successful fal.ai response
     ;(fal.subscribe as jest.Mock).mockResolvedValue({
       data: {
         images: [{ url: 'https://example.com/generated-image.jpg' }]
       }
     })
+    
+    // Mock successful position updates
+    ;(imagesLib.updateImagePosition as jest.Mock).mockResolvedValue(true)
   })
 
   describe('New image case (no existing image)', () => {
@@ -62,7 +73,7 @@ describe('Image Generation Logic', () => {
 
       // Wait for debounced generation to complete
       await waitFor(() => {
-        expect(imagesLib.saveImage).toHaveBeenCalledWith('test prompt', 'https://example.com/generated-image.jpg')
+        expect(imagesLib.saveImage).toHaveBeenCalledWith('test prompt', 'https://example.com/generated-image.jpg', 384, 1500) // 1024/2 - 128 = 384
       }, { timeout: 1000 })
 
       // Verify updateImage was NOT called
@@ -171,7 +182,9 @@ describe('Image Generation Logic', () => {
       await waitFor(() => {
         expect(imagesLib.saveImage).toHaveBeenCalledWith(
           'original prompt',
-          'https://example.com/original-image.jpg'
+          'https://example.com/original-image.jpg',
+          286, // Smart clone position: 256 + 30 = 286 (to the right)
+          0    // Same Y position as original
         )
       })
 

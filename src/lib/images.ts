@@ -1,14 +1,16 @@
 import { supabase, Image } from './supabase'
 
-export async function saveImage(prompt: string, imageUrl: string): Promise<Image | null> {
+export { type Image }
+
+export async function saveImage(prompt: string, imageUrl: string, positionX: number = 0, positionY: number = 0): Promise<Image | null> {
   try {
     const { data, error } = await supabase
       .from('images')
       .insert({
         prompt,
         image_url: imageUrl,
-        position_x: 0,
-        position_y: 0,
+        position_x: positionX,
+        position_y: positionY,
       })
       .select()
       .single()

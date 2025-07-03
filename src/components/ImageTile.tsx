@@ -1,5 +1,6 @@
 import { Image } from '../lib/images'
 import { Copy, Trash2 } from 'lucide-react'
+import { useState, useRef, useEffect, useCallback } from 'react'
 
 interface ImageTileProps {
   image: Image
@@ -7,9 +8,14 @@ interface ImageTileProps {
   onSelect: (imageId: string) => void
   onClone: (imageId: string) => void
   onDelete: (imageId: string) => void
+  onPositionChange: (imageId: string, x: number, y: number) => void
 }
 
-export default function ImageTile({ image, isSelected, onSelect, onClone, onDelete }: ImageTileProps) {
+export default function ImageTile({ image, isSelected, onSelect, onClone, onDelete, onPositionChange }: ImageTileProps) {
+  const [isDragging, setIsDragging] = useState(false)
+  const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 })
+  const dragRef = useRef({ startX: 0, startY: 0, initialX: 0, initialY: 0 })
+
   const handleCloneClick = (e: React.MouseEvent) => {
     e.stopPropagation()
     onClone(image.id)
@@ -20,14 +26,81 @@ export default function ImageTile({ image, isSelected, onSelect, onClone, onDele
     onDelete(image.id)
   }
 
+  const handleMouseDown = (e: React.MouseEvent) => {
+    if ((e.target as HTMLElement).closest('button')) {
+      // Don't start drag if clicking on buttons
+      return
+    }
+
+    e.preventDefault()
+    setIsDragging(true)
+
+    dragRef.current = {
+      startX: e.clientX,
+      startY: e.clientY,
+      initialX: image.position_x,
+      initialY: image.position_y
+    }
+  }
+
+  const handleMouseMove = useCallback((e: MouseEvent) => {
+    if (!isDragging) return
+
+    const deltaX = e.clientX - dragRef.current.startX
+    const deltaY = e.clientY - dragRef.current.startY
+
+    const maxX = window.innerWidth - 256 // Screen width - image width
+    const maxY = 3000 - 200 // Canvas height - image height
+    
+    const newX = Math.max(0, Math.min(maxX, dragRef.current.initialX + deltaX))
+    const newY = Math.max(0, Math.min(maxY, dragRef.current.initialY + deltaY))
+
+    setDragOffset({ x: newX - image.position_x, y: newY - image.position_y })
+  }, [isDragging, image.position_x, image.position_y])
+
+  const handleMouseUp = useCallback(() => {
+    if (!isDragging) return
+
+    setIsDragging(false)
+
+    const newX = image.position_x + dragOffset.x
+    const newY = image.position_y + dragOffset.y
+
+    // Persist the new position
+    onPositionChange(image.id, newX, newY)
+    setDragOffset({ x: 0, y: 0 })
+  }, [isDragging, image.position_x, image.position_y, image.id, dragOffset.x, dragOffset.y, onPositionChange])
+
+  // Add global mouse event listeners when dragging
+  useEffect(() => {
+    if (isDragging) {
+      document.addEventListener('mousemove', handleMouseMove)
+      document.addEventListener('mouseup', handleMouseUp)
+      return () => {
+        document.removeEventListener('mousemove', handleMouseMove)
+        document.removeEventListener('mouseup', handleMouseUp)
+      }
+    }
+  }, [isDragging, handleMouseMove, handleMouseUp])
+
+  const currentX = image.position_x + dragOffset.x
+  const currentY = image.position_y + dragOffset.y
+
   return (
     <div
-      key={image.id}
-      className={`relative group cursor-pointer rounded-lg overflow-hidden transition-all ${isSelected
-        ? 'shadow-lg shadow-gray-800/80'
-        : 'hover:shadow-md shadow-gray-600/50'
+      className={`absolute group rounded-lg overflow-hidden w-64 ${isDragging
+          ? 'cursor-grabbing opacity-75 z-50'
+          : 'cursor-grab'
+        } ${isSelected
+          ? 'shadow-lg shadow-gray-800/80 z-40'
+          : 'hover:shadow-md shadow-gray-600/50'
         }`}
+      style={{
+        left: `${currentX}px`,
+        top: `${currentY}px`,
+      }}
       onClick={() => onSelect(image.id)}
+      onMouseDown={handleMouseDown}
     >
       <img
         src={image.image_url}
