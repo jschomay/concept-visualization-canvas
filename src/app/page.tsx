@@ -318,10 +318,10 @@ export default function Home() {
             placeholder="Type to generate an image..."
             className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
           />
-          {isGenerating && (
-            <div className="text-sm text-gray-500 text-center py-2">Generating...</div>
-          )}
         </div>
+        {isGenerating && (
+          <div className="text-sm text-gray-500 text-center mt-2">Generating...</div>
+        )}
       </div>
 
       {/* Full canvas area */}
