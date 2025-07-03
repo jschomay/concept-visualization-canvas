@@ -117,10 +117,10 @@ export default function Home() {
     // If would go off right edge, try below
     if (newX + imageWidth > canvasWidth) {
       newX = originalImage.position_x;
-      newY = originalImage.position_y + 200 + offsetY; // Approximate image height + offset
+      newY = originalImage.position_y + 256 + offsetY; // Full image height + offset
 
       // If would go off bottom edge, place to the left
-      if (newY + 200 > canvasHeight) {
+      if (newY + 256 > canvasHeight) {
         newX = Math.max(0, originalImage.position_x - imageWidth - offsetX);
         newY = originalImage.position_y;
       }
