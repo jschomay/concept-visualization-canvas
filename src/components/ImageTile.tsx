@@ -111,11 +111,21 @@ export default function ImageTile({ image, isSelected, onSelect, onClone, onDele
       onMouseDown={handleMouseDown}
     >
       {image.image_url ? (
-        <img
-          src={image.image_url}
-          alt={image.prompt}
-          className="w-full h-auto"
-        />
+        <div className="relative">
+          <img
+            src={image.image_url}
+            alt={image.prompt}
+            className="w-full h-auto"
+          />
+          {/* Loading overlay for when generating new version */}
+          {image.isGenerating && (
+            <div className="absolute inset-0 bg-black bg-opacity-30 flex items-center justify-center">
+              <div className="text-white text-sm">
+                <div className="animate-pulse">Updating...</div>
+              </div>
+            </div>
+          )}
+        </div>
       ) : (
         <div className="w-full bg-gray-200 flex items-center justify-center" style={{ height: `${IMAGE_SIZE}px` }}>
           <div className="text-gray-500 text-sm text-center p-4">
