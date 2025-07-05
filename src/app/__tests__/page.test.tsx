@@ -1,6 +1,7 @@
 import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import { fal } from '@fal-ai/client'
 import * as imagesLib from '../../lib/images'
+import * as imageGeneration from '../../lib/imageGeneration'
 import { CANVAS_HEIGHT, IMAGE_SIZE } from '../../constants/layout'
 import Home from '../page'
 
@@ -21,7 +22,14 @@ jest.mock('@fal-ai/client', () => ({
   },
 }))
 
+// Mock the image generation lib
+jest.mock('../../lib/imageGeneration', () => ({
+  generateImageWithFal: jest.fn(),
+}))
+
 describe('Image Generation Logic', () => {
+  const mockGenerateImageWithFal = imageGeneration.generateImageWithFal as jest.MockedFunction<typeof imageGeneration.generateImageWithFal>
+
   beforeEach(() => {
     // Reset all mocks before each test
     jest.clearAllMocks()
@@ -33,12 +41,8 @@ describe('Image Generation Logic', () => {
       value: 1024,
     })
     
-    // Mock successful fal.ai response
-    ;(fal.subscribe as jest.Mock).mockResolvedValue({
-      data: {
-        images: [{ url: 'https://example.com/generated-image.jpg' }]
-      }
-    })
+    // Mock successful image generation
+    mockGenerateImageWithFal.mockResolvedValue('https://example.com/generated-image.jpg')
     
     // Mock successful position updates
     ;(imagesLib.updateImagePosition as jest.Mock).mockResolvedValue(true)
@@ -405,6 +409,234 @@ describe('Image Generation Logic', () => {
       // Verify images are still present (delete failed)
       expect(screen.getByAltText('first image')).toBeInTheDocument()
       expect(screen.getByAltText('second image')).toBeInTheDocument()
+    })
+  })
+
+  describe('Magic Variations Functionality', () => {
+    const mockGenerateImageWithFal = imageGeneration.generateImageWithFal as jest.MockedFunction<typeof imageGeneration.generateImageWithFal>
+
+    beforeEach(() => {
+      // Mock existing image to generate variations from
+      ;(imagesLib.loadAllImages as jest.Mock).mockResolvedValue([{
+        id: 'original-image-id',
+        prompt: 'a beautiful sunset',
+        image_url: 'https://example.com/original-sunset.jpg',
+        position_x: 100,
+        position_y: 100,
+        created_at: '2023-01-01T00:00:00Z',
+        updated_at: '2023-01-01T00:00:00Z',
+      }])
+
+      // Mock the variations API response
+      global.fetch = jest.fn().mockResolvedValue({
+        ok: true,
+        json: async () => ({
+          variations: [
+            'a beautiful sunset with mountains',
+            'a beautiful sunset over the ocean',
+            'a beautiful sunset in autumn colors',
+            'a beautiful sunset with dramatic clouds'
+          ]
+        })
+      })
+
+      // Mock generateImageWithFal to return different URLs for each variation
+      mockGenerateImageWithFal
+        .mockResolvedValueOnce('https://example.com/variation-1.jpg')
+        .mockResolvedValueOnce('https://example.com/variation-2.jpg')
+        .mockResolvedValueOnce('https://example.com/variation-3.jpg')
+        .mockResolvedValueOnce('https://example.com/variation-4.jpg')
+
+      // Mock saveImage to return unique IDs for each variation
+      let saveCallCount = 0
+      ;(imagesLib.saveImage as jest.Mock).mockImplementation((prompt, url, x, y) => {
+        saveCallCount++
+        return Promise.resolve({
+          id: `variation-${saveCallCount}`,
+          prompt,
+          image_url: url,
+          position_x: x,
+          position_y: y,
+          created_at: '2023-01-01T00:00:01Z',
+          updated_at: '2023-01-01T00:00:01Z',
+        })
+      })
+    })
+
+    afterEach(() => {
+      jest.restoreAllMocks()
+    })
+
+    it('should generate 4 variations when magic button is clicked', async () => {
+      render(<Home />)
+      
+      // Wait for loading to complete and original image to load
+      await waitFor(() => {
+        expect(screen.queryByText('Loading...')).not.toBeInTheDocument()
+      })
+
+      // Verify original image is loaded
+      await waitFor(() => {
+        expect(screen.getByAltText('a beautiful sunset')).toBeInTheDocument()
+      })
+
+      // Find and click the magic variations button
+      const magicButton = screen.getByTitle('Generate variations')
+      fireEvent.click(magicButton)
+
+      // Wait for variations API call
+      await waitFor(() => {
+        expect(global.fetch).toHaveBeenCalledWith('/api/variations', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ prompt: 'a beautiful sunset' }),
+        })
+      })
+
+      // Wait for all 4 image generations to be called
+      await waitFor(() => {
+        expect(mockGenerateImageWithFal).toHaveBeenCalledTimes(4)
+      })
+
+      // Verify the correct variation prompts were used
+      expect(mockGenerateImageWithFal).toHaveBeenCalledWith('a beautiful sunset with mountains')
+      expect(mockGenerateImageWithFal).toHaveBeenCalledWith('a beautiful sunset over the ocean')
+      expect(mockGenerateImageWithFal).toHaveBeenCalledWith('a beautiful sunset in autumn colors')
+      expect(mockGenerateImageWithFal).toHaveBeenCalledWith('a beautiful sunset with dramatic clouds')
+
+      // Wait for all variations to appear on screen
+      await waitFor(() => {
+        expect(screen.getByAltText('a beautiful sunset with mountains')).toBeInTheDocument()
+        expect(screen.getByAltText('a beautiful sunset over the ocean')).toBeInTheDocument()
+        expect(screen.getByAltText('a beautiful sunset in autumn colors')).toBeInTheDocument()
+        expect(screen.getByAltText('a beautiful sunset with dramatic clouds')).toBeInTheDocument()
+      }, { timeout: 3000 })
+
+      // Verify all 4 variations were saved to database
+      await waitFor(() => {
+        expect(imagesLib.saveImage).toHaveBeenCalledTimes(4)
+      })
+
+      // Verify the correct data was saved for each variation
+      expect(imagesLib.saveImage).toHaveBeenCalledWith(
+        'a beautiful sunset with mountains',
+        'https://example.com/variation-1.jpg',
+        expect.any(Number), // position_x (calculated based on original image position)
+        expect.any(Number)  // position_y
+      )
+      expect(imagesLib.saveImage).toHaveBeenCalledWith(
+        'a beautiful sunset over the ocean',
+        'https://example.com/variation-2.jpg',
+        expect.any(Number),
+        expect.any(Number)
+      )
+      expect(imagesLib.saveImage).toHaveBeenCalledWith(
+        'a beautiful sunset in autumn colors',
+        'https://example.com/variation-3.jpg',
+        expect.any(Number),
+        expect.any(Number)
+      )
+      expect(imagesLib.saveImage).toHaveBeenCalledWith(
+        'a beautiful sunset with dramatic clouds',
+        'https://example.com/variation-4.jpg',
+        expect.any(Number),
+        expect.any(Number)
+      )
+
+      // Verify we now have 5 total images on the page (original + 4 variations)
+      const allImages = screen.getAllByRole('img')
+      expect(allImages).toHaveLength(5)
+    })
+
+    it('should handle variations API error gracefully', async () => {
+      // Mock API failure
+      global.fetch = jest.fn().mockResolvedValue({
+        ok: false,
+        status: 500
+      })
+
+      const consoleSpy = jest.spyOn(console, 'error').mockImplementation()
+
+      render(<Home />)
+      
+      await waitFor(() => {
+        expect(screen.queryByText('Loading...')).not.toBeInTheDocument()
+      })
+
+      const magicButton = screen.getByTitle('Generate variations')
+      fireEvent.click(magicButton)
+
+      // Wait for error to be logged
+      await waitFor(() => {
+        expect(consoleSpy).toHaveBeenCalledWith('Error generating variations:', expect.any(Error))
+      })
+
+      // Should still only have the original image
+      await waitFor(() => {
+        const allImages = screen.getAllByRole('img')
+        expect(allImages).toHaveLength(1)
+        expect(screen.getByAltText('a beautiful sunset')).toBeInTheDocument()
+      })
+
+      // No images should be saved
+      expect(imagesLib.saveImage).not.toHaveBeenCalled()
+
+      consoleSpy.mockRestore()
+    })
+
+
+    it('should position variations with coordinate calculations', async () => {
+      render(<Home />)
+      
+      await waitFor(() => {
+        expect(screen.queryByText('Loading...')).not.toBeInTheDocument()
+      })
+
+      const magicButton = screen.getByTitle('Generate variations')
+      fireEvent.click(magicButton)
+
+      // Wait for all variations to be saved
+      await waitFor(() => {
+        expect(imagesLib.saveImage).toHaveBeenCalledTimes(4)
+      }, { timeout: 3000 })
+
+      // Verify that all variations were saved with position coordinates
+      // (not testing exact values since positioning logic is complex)
+      expect(imagesLib.saveImage).toHaveBeenCalledWith(
+        'a beautiful sunset with mountains',
+        'https://example.com/variation-1.jpg',
+        expect.any(Number), // x position
+        expect.any(Number)  // y position (should be same as original: 100)
+      )
+
+      expect(imagesLib.saveImage).toHaveBeenCalledWith(
+        'a beautiful sunset over the ocean',
+        'https://example.com/variation-2.jpg',
+        expect.any(Number),
+        expect.any(Number)
+      )
+
+      expect(imagesLib.saveImage).toHaveBeenCalledWith(
+        'a beautiful sunset in autumn colors',
+        'https://example.com/variation-3.jpg',
+        expect.any(Number),
+        expect.any(Number)
+      )
+
+      expect(imagesLib.saveImage).toHaveBeenCalledWith(
+        'a beautiful sunset with dramatic clouds',
+        'https://example.com/variation-4.jpg',
+        expect.any(Number),
+        expect.any(Number)
+      )
+
+      // Verify all variations share the same Y coordinate as the original (100)
+      const saveImageCalls = (imagesLib.saveImage as jest.Mock).mock.calls
+      saveImageCalls.forEach(call => {
+        expect(call[3]).toBe(100) // y position should be 100 (same as original)
+      })
     })
   })
 })
