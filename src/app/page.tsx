@@ -237,24 +237,16 @@ export default function Home() {
       setPrompt(tempClone.prompt);
 
       // Save to database in background with position
-      const clonedImage = await saveImage(imageToClone.prompt, imageToClone.image_url, clonePosition.x, clonePosition.y);
-      if (clonedImage) {
-        // Replace temp with real image from database (already has correct position)
-        const realClone: LocalImage = {
-          ...clonedImage,
-          isGenerating: false,
-          latestRequestTime: Date.now(),
-          latestResponseTime: Date.now(),
-        };
-        setImagesMap(prev => {
-          const newMap = new Map(prev);
-          newMap.delete(tempId); // Remove temp
-          newMap.set(clonedImage.id, realClone); // Add real
-          return newMap;
-        });
-        setSelectedImageId(clonedImage.id);
-      } else {
-        // Remove temp clone if save failed
+      const clonedImage = await saveAndReplaceTempImage(
+        tempId,
+        imageToClone.prompt,
+        imageToClone.image_url,
+        clonePosition,
+        true // shouldUpdateSelected
+      );
+      
+      if (!clonedImage) {
+        // Remove temp clone if save failed and reset selection
         setImagesMap(prev => {
           const newMap = new Map(prev);
           newMap.delete(tempId);
@@ -299,12 +291,182 @@ export default function Home() {
     }
   };
 
+  const saveAndReplaceTempImage = async (
+    tempId: string, 
+    prompt: string, 
+    imageUrl: string, 
+    position: { x: number, y: number },
+    shouldUpdateSelected: boolean = false
+  ) => {
+    try {
+      const savedImage = await saveImage(prompt, imageUrl, position.x, position.y);
+      if (savedImage) {
+        const currentTempImage = imagesMap.get(tempId);
+        const realImage: LocalImage = {
+          ...savedImage,
+          isGenerating: false,
+          latestRequestTime: currentTempImage?.latestRequestTime || Date.now(),
+          latestResponseTime: currentTempImage?.latestResponseTime || Date.now(),
+        };
+        
+        setImagesMap(prev => {
+          const newMap = new Map(prev);
+          newMap.delete(tempId);
+          newMap.set(savedImage.id, realImage);
+          return newMap;
+        });
+
+        // Update selectedImageId if this was the selected temp
+        if (shouldUpdateSelected && tempId === selectedImageId) {
+          setSelectedImageId(savedImage.id);
+        }
+
+        return savedImage;
+      }
+    } catch (error) {
+      console.error('Error saving and replacing temp image:', error);
+      return null;
+    }
+    return null;
+  };
+
+  const generateImage = async (promptToGenerate: string) => {
+    if (!selectedImageId) {
+      console.error('❌ Unexpected: no selected image at generation start');
+      return;
+    }
+
+    if (!promptToGenerate.trim()) return;
+
+    const requestPrompt = promptToGenerate;
+    const requestTime = Date.now();
+    const targetImageId = selectedImageId;
+
+    // Set loading state and request time for target image
+    setImagesMap(prev => {
+      const newMap = new Map(prev);
+      const currentImage = newMap.get(targetImageId);
+      if (currentImage) {
+        newMap.set(targetImageId, {
+          ...currentImage,
+          isGenerating: true,
+          latestRequestTime: requestTime,
+        });
+      }
+      return newMap;
+    });
+
+    try {
+      const newImageUrl = await generateImageWithFal(requestPrompt);
+
+      if (newImageUrl) {
+        // Update image with race condition logic
+        setImagesMap(prev => {
+          const newMap = new Map(prev);
+          const currentImage = newMap.get(targetImageId);
+          if (!currentImage) return prev;
+
+          const currentResponseTime = currentImage.latestResponseTime || 0;
+
+          // Only accept if this response is newer than current
+          if (requestTime >= currentResponseTime) {
+            newMap.set(targetImageId, {
+              ...currentImage,
+              image_url: newImageUrl,
+              prompt: requestPrompt,
+              latestResponseTime: requestTime,
+              isGenerating: requestTime < (currentImage.latestRequestTime || 0),
+              updated_at: new Date().toISOString(),
+            });
+          }
+          return newMap;
+        });
+
+        // Handle database operations
+        if (targetImageId.startsWith('temp-')) {
+          // Save temp image to database and replace with real image
+          const currentImage = imagesMap.get(targetImageId);
+          if (currentImage) {
+            setTimeout(() => {
+              saveAndReplaceTempImage(
+                targetImageId,
+                requestPrompt,
+                newImageUrl,
+                { x: currentImage.position_x, y: currentImage.position_y },
+                true // shouldUpdateSelected
+              );
+            }, 0);
+          }
+        } else {
+          // Update existing database image in background
+          updateImage(targetImageId, requestPrompt, newImageUrl).catch(error => {
+            console.error('Error updating image in database:', error);
+          });
+        }
+      }
+    } catch (error) {
+      console.error("Error generating image:", error);
+
+      // Clear loading state on error
+      setImagesMap(prev => {
+        const newMap = new Map(prev);
+        const currentImage = newMap.get(targetImageId);
+        if (currentImage && requestTime >= (currentImage.latestResponseTime || 0)) {
+          if (targetImageId.startsWith('temp-')) {
+            // Remove temp image on error
+            newMap.delete(targetImageId);
+          } else {
+            // Just clear loading state for real images
+            newMap.set(targetImageId, {
+              ...currentImage,
+              isGenerating: false,
+            });
+          }
+        }
+        return newMap;
+      });
+    }
+  };
+
   const handleGenerateVariations = async (imageId: string) => {
     const originalImage = imagesMap.get(imageId);
     if (!originalImage) return;
 
     try {
-      // Get prompt variations from OpenAI
+      // 1. Create temp images immediately for instant feedback
+      const positions = getVariationPositions(originalImage);
+      const tempData = Array.from({ length: 4 }, (_, index) => {
+        const position = positions[index];
+        const tempId = `temp-${Date.now()}-${Math.random()}-${index}`;
+        
+        return {
+          tempId,
+          position,
+          tempImage: {
+            id: tempId,
+            prompt: `Variation ${index + 1}...`, // Placeholder text
+            image_url: '',
+            position_x: position.x,
+            position_y: position.y,
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString(),
+            isGenerating: true, // Start in generating state
+            latestRequestTime: 0,
+            latestResponseTime: 0,
+          } as LocalImage
+        };
+      });
+
+      // 2. Create ALL temp images in ONE state update (instant UI feedback)
+      setImagesMap(prev => {
+        const newMap = new Map(prev);
+        tempData.forEach(({ tempId, tempImage }) => {
+          newMap.set(tempId, tempImage);
+        });
+        return newMap;
+      });
+
+      // 3. Get prompt variations from OpenAI
       const response = await fetch('/api/variations', {
         method: 'POST',
         headers: {
@@ -323,74 +485,55 @@ export default function Home() {
         throw new Error('No variations generated');
       }
 
-      // Get positions for the variations
-      const positions = getVariationPositions(originalImage);
-
-      // Generate images for each variation in parallel
-      const variationPromises = variations.map(async (variation: string, index: number) => {
-        const position = positions[index];
-        const tempId = `temp-${Date.now()}-${Math.random()}-${index}`;
-
-        // Create temporary image with loading state
-        const requestTime = Date.now();
-        const tempImage: LocalImage = {
-          id: tempId,
-          prompt: variation,
-          image_url: '', // Will be filled when generation completes
-          position_x: position.x,
-          position_y: position.y,
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
-          isGenerating: true,
-          latestRequestTime: requestTime,
-          latestResponseTime: 0,
-        };
-
-        // Add to local state immediately
-        setImagesMap(prev => new Map(prev).set(tempId, tempImage));
-
+      // 4. Process each variation independently for streaming UX
+      const variationPromises = tempData.map(async ({ tempId, position }, index) => {
         try {
-          // Generate image with fal.ai
-          const imageUrl = await generateImageWithFal(variation);
+          const variation = variations[index];
+          if (!variation) return;
 
-          if (imageUrl) {
-            // Update temp image with generated image using Approach B
-            setImagesMap(prev => {
-              const newMap = new Map(prev);
-              const currentImage = newMap.get(tempId);
-              if (currentImage) {
-                newMap.set(tempId, {
-                  ...currentImage,
-                  image_url: imageUrl,
-                  latestResponseTime: requestTime,
-                  isGenerating: false,
-                });
-              }
-              return newMap;
-            });
-
-            // Save to database in background
-            const savedImage = await saveImage(variation, imageUrl, position.x, position.y);
-
-            if (savedImage) {
-              // Replace temp with real image
-              const realImage: LocalImage = {
-                ...savedImage,
-                isGenerating: false,
-                latestRequestTime: requestTime,
-                latestResponseTime: requestTime,
-              };
-              setImagesMap(prev => {
-                const newMap = new Map(prev);
-                newMap.delete(tempId);
-                newMap.set(savedImage.id, realImage);
-                return newMap;
+          // Update temp image with actual prompt
+          setImagesMap(prev => {
+            const newMap = new Map(prev);
+            const tempImage = newMap.get(tempId);
+            if (tempImage) {
+              newMap.set(tempId, {
+                ...tempImage,
+                prompt: variation,
               });
             }
-          }
+            return newMap;
+          });
+
+          // Generate image
+          const imageUrl = await generateImageWithFal(variation);
+          if (!imageUrl) return;
+
+          // Update state immediately - show image right away  
+          setImagesMap(prev => {
+            const newMap = new Map(prev);
+            const tempImage = newMap.get(tempId);
+            if (tempImage) {
+              newMap.set(tempId, {
+                ...tempImage,
+                image_url: imageUrl,
+                isGenerating: false,
+              });
+            }
+            return newMap;
+          });
+
+          // Save to database in background (user already sees image)
+          await saveAndReplaceTempImage(
+            tempId,
+            variation,
+            imageUrl,
+            position,
+            false // don't update selected - variations aren't selected
+          );
+
         } catch (error) {
-          console.error('Error generating variation:', error);
-          // Remove temp image on error
+          console.error('Error processing variation:', error);
+          // Remove failed temp image
           setImagesMap(prev => {
             const newMap = new Map(prev);
             newMap.delete(tempId);
@@ -407,117 +550,6 @@ export default function Home() {
     }
   };
 
-
-  const generateImage = async (promptToGenerate: string) => {
-    if (!promptToGenerate.trim()) return;
-
-    const requestPrompt = promptToGenerate;
-    const requestSelectedImageId = selectedImageId;
-    const requestTime = Date.now();
-
-    // Approach B: Set loading state and request time for target image
-    if (requestSelectedImageId) {
-      // Update existing image
-      setImagesMap(prev => {
-        const newMap = new Map(prev);
-        const currentImage = newMap.get(requestSelectedImageId);
-        if (currentImage) {
-          newMap.set(requestSelectedImageId, {
-            ...currentImage,
-            isGenerating: true,
-            latestRequestTime: requestTime,
-          });
-        }
-        return newMap;
-      });
-    } else {
-      // This should never happen now - we always have a selected image
-      console.error('❌ Unexpected: no selected image at generation start');
-      return;
-    }
-
-    try {
-      const newImageUrl = await generateImageWithFal(requestPrompt);
-
-      if (newImageUrl) {
-        if (requestSelectedImageId) {
-          // Update existing image using Approach B
-          setImagesMap(prev => {
-            const newMap = new Map(prev);
-            const currentImage = newMap.get(requestSelectedImageId);
-            if (!currentImage) return prev;
-
-            const currentResponseTime = currentImage.latestResponseTime || 0;
-
-            // Only accept if this response is newer than current
-            if (requestTime >= currentResponseTime) {
-              newMap.set(requestSelectedImageId, {
-                ...currentImage,
-                image_url: newImageUrl,
-                prompt: requestPrompt,
-                latestResponseTime: requestTime,
-                isGenerating: requestTime < (currentImage.latestRequestTime || 0),
-                updated_at: new Date().toISOString(),
-              });
-
-              // Handle database operations after state update
-              if (requestSelectedImageId === 'temp-placeholder') {
-                // Replace placeholder with real saved image (async)
-                setTimeout(async () => {
-                  const savedImage = await saveImage(requestPrompt, newImageUrl, currentImage.position_x, currentImage.position_y);
-                  if (savedImage) {
-                    const realImage: LocalImage = {
-                      ...savedImage,
-                      isGenerating: requestTime < (currentImage.latestRequestTime || 0),
-                      latestRequestTime: currentImage.latestRequestTime,
-                      latestResponseTime: requestTime,
-                    };
-                    setImagesMap(prev => {
-                      const newMap = new Map(prev);
-                      newMap.delete('temp-placeholder');
-                      newMap.set(savedImage.id, realImage);
-                      return newMap;
-                    });
-                    setSelectedImageId(savedImage.id);
-                  }
-                }, 0);
-              } else {
-                // Update database in background
-                updateImage(requestSelectedImageId, requestPrompt, newImageUrl).catch(error => {
-                  console.error('Error updating image in database:', error);
-                });
-              }
-            } else {
-              // reject stale request
-            }
-            return newMap;
-          });
-        } else {
-          // This should never happen now - we always have a selected image (placeholder if needed)
-          console.error('❌ Unexpected: no selected image during generation');
-        }
-      }
-    } catch (error) {
-      console.error("Error generating image:", error);
-
-      // Clear loading state on error
-      if (requestSelectedImageId) {
-        setImagesMap(prev => {
-          const newMap = new Map(prev);
-          const currentImage = newMap.get(requestSelectedImageId);
-          if (currentImage && requestTime >= (currentImage.latestResponseTime || 0)) {
-            newMap.set(requestSelectedImageId, {
-              ...currentImage,
-              isGenerating: false,
-            });
-          }
-          return newMap;
-        });
-      }
-    } finally {
-      // No need for global loading state management anymore
-    }
-  };
 
   if (isLoading) {
     return (

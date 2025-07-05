@@ -218,7 +218,7 @@ describe('Image Generation Logic', () => {
 
       // Wait for error to be logged
       await waitFor(() => {
-        expect(consoleSpy).toHaveBeenCalledWith('Error cloning image:', expect.any(Error))
+        expect(consoleSpy).toHaveBeenCalledWith('Error saving and replacing temp image:', expect.any(Error))
       })
 
       consoleSpy.mockRestore()
