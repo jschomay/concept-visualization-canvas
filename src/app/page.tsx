@@ -3,7 +3,9 @@
 import { useState, useEffect, useRef } from "react";
 import { fal } from "@fal-ai/client";
 import { saveImage, loadAllImages, updateImage, deleteImage, updateImagePosition, Image } from "../lib/images";
+import { generateImageWithFal } from "../lib/imageGeneration";
 import ImageTile from "../components/ImageTile";
+import { CANVAS_HEIGHT, IMAGE_SIZE } from "../constants/layout";
 
 fal.config({
   proxyUrl: "/api/fal/proxy",
@@ -106,9 +108,9 @@ export default function Home() {
   const getSmartClonePosition = (originalImage: Image): { x: number, y: number } => {
     const offsetX = 30;
     const offsetY = 30;
-    const imageWidth = 256; // Approximate width of w-64 class
+    const imageWidth = IMAGE_SIZE;
     const canvasWidth = window.innerWidth;
-    const canvasHeight = 3000;
+    const canvasHeight = CANVAS_HEIGHT;
 
     // Try to place to the right first
     let newX = originalImage.position_x + imageWidth + offsetX;
@@ -117,16 +119,55 @@ export default function Home() {
     // If would go off right edge, try below
     if (newX + imageWidth > canvasWidth) {
       newX = originalImage.position_x;
-      newY = originalImage.position_y + 256 + offsetY; // Full image height + offset
+      newY = originalImage.position_y + IMAGE_SIZE + offsetY; // Full image height + offset
 
       // If would go off bottom edge, place to the left
-      if (newY + 256 > canvasHeight) {
+      if (newY + IMAGE_SIZE > canvasHeight) {
         newX = Math.max(0, originalImage.position_x - imageWidth - offsetX);
         newY = originalImage.position_y;
       }
     }
 
     return { x: newX, y: newY };
+  };
+
+  const getVariationPositions = (originalImage: Image): { x: number, y: number }[] => {
+    const imageWidth = IMAGE_SIZE;
+    const imageHeight = IMAGE_SIZE;
+    const spacing = 20;
+    const canvasHeight = CANVAS_HEIGHT;
+
+    const positions: { x: number, y: number }[] = [];
+
+    // Calculate space needed for 4 variations horizontally
+    const totalWidth = 4 * imageWidth + 3 * spacing;
+    const canvasWidth = window.innerWidth;
+
+    // Check if we can place variations to the right of the original image
+    const spaceToRight = canvasWidth - (originalImage.position_x + imageWidth);
+    const placeToRight = spaceToRight >= totalWidth;
+
+    if (placeToRight) {
+      // Place variations to the right of the original image
+      const startX = originalImage.position_x + imageWidth + spacing;
+      for (let i = 0; i < 4; i++) {
+        positions.push({
+          x: startX + i * (imageWidth + spacing),
+          y: originalImage.position_y
+        });
+      }
+    } else {
+      // Place variations to the left of the original image
+      const startX = originalImage.position_x - spacing - totalWidth;
+      for (let i = 0; i < 4; i++) {
+        positions.push({
+          x: Math.max(0, startX + i * (imageWidth + spacing)),
+          y: originalImage.position_y
+        });
+      }
+    }
+
+    return positions;
   };
 
   const handleClone = async (imageId: string) => {
@@ -209,6 +250,96 @@ export default function Home() {
     }
   };
 
+  const handleGenerateVariations = async (imageId: string) => {
+    const originalImage = imagesMap.get(imageId);
+    if (!originalImage) return;
+
+    try {
+      // Get prompt variations from OpenAI
+      const response = await fetch('/api/variations', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ prompt: originalImage.prompt }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to generate variations');
+      }
+
+      const { variations } = await response.json();
+
+      if (!variations || variations.length === 0) {
+        throw new Error('No variations generated');
+      }
+
+      // Get positions for the variations
+      const positions = getVariationPositions(originalImage);
+
+      // Generate images for each variation in parallel
+      const variationPromises = variations.map(async (variation: string, index: number) => {
+        const position = positions[index];
+        const tempId = `temp-${Date.now()}-${Math.random()}-${index}`;
+
+        // Create temporary image with loading state
+        const tempImage = {
+          id: tempId,
+          prompt: variation,
+          image_url: '', // Will be filled when generation completes
+          position_x: position.x,
+          position_y: position.y,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        };
+
+        // Add to local state immediately
+        setImagesMap(prev => new Map(prev).set(tempId, tempImage));
+
+        try {
+          // Generate image with fal.ai
+          const imageUrl = await generateImageWithFal(variation);
+
+          if (imageUrl) {
+            // Save to database
+            const savedImage = await saveImage(variation, imageUrl, position.x, position.y);
+
+            if (savedImage) {
+              // Replace temp with real image
+              setImagesMap(prev => {
+                const newMap = new Map(prev);
+                newMap.delete(tempId);
+                newMap.set(savedImage.id, savedImage);
+                return newMap;
+              });
+            } else {
+              // Remove temp if save failed
+              setImagesMap(prev => {
+                const newMap = new Map(prev);
+                newMap.delete(tempId);
+                return newMap;
+              });
+            }
+          }
+        } catch (error) {
+          console.error('Error generating variation:', error);
+          // Remove temp image on error
+          setImagesMap(prev => {
+            const newMap = new Map(prev);
+            newMap.delete(tempId);
+            return newMap;
+          });
+        }
+      });
+
+      // Wait for all variations to complete
+      await Promise.all(variationPromises);
+
+    } catch (error) {
+      console.error('Error generating variations:', error);
+    }
+  };
+
 
   const generateImage = async (promptToGenerate: string) => {
     if (!promptToGenerate.trim()) return;
@@ -220,21 +351,14 @@ export default function Home() {
 
     setIsGenerating(true);
     try {
-      const result = await fal.subscribe("fal-ai/flux/dev", {
-        input: {
-          prompt: requestPrompt,
-          image_size: "square",
-        },
-        pollInterval: 500,
-      });
+      const newImageUrl = await generateImageWithFal(requestPrompt);
 
       // Ignore stale responses
       if (currentPromptRef.current !== requestPrompt) {
         return;
       }
 
-      if (result.data.images && result.data.images[0]) {
-        const newImageUrl = result.data.images[0].url;
+      if (newImageUrl) {
 
         if (requestSelectedImageId) {
           // Update the image that was selected when request started
@@ -244,8 +368,8 @@ export default function Home() {
           }
         } else {
           // Create new image in center (only happens when no images exist)
-          const centerX = window.innerWidth / 2 - 128; // Center of screen - half image width
-          const centerY = 1500; // Center of canvas height (3000/2)
+          const centerX = window.innerWidth / 2 - IMAGE_SIZE / 2; // Center of screen - half image width
+          const centerY = CANVAS_HEIGHT / 2; // Center of canvas height
           const tempId = `temp-${Date.now()}-${Math.random()}`;
 
           // Update local state immediately for instant UX
@@ -325,7 +449,7 @@ export default function Home() {
       </div>
 
       {/* Full canvas area */}
-      <div className="relative w-full h-[3000px]">
+      <div className="relative w-full" style={{ height: `${CANVAS_HEIGHT}px` }}>
         {Array.from(imagesMap.values()).map(image => (
           <ImageTile
             key={image.id}
@@ -335,6 +459,7 @@ export default function Home() {
             onClone={handleClone}
             onDelete={handleDelete}
             onPositionChange={handlePositionChange}
+            onGenerateVariations={handleGenerateVariations}
           />
         ))}
       </div>

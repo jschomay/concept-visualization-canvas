@@ -1,6 +1,7 @@
 import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import { fal } from '@fal-ai/client'
 import * as imagesLib from '../../lib/images'
+import { CANVAS_HEIGHT, IMAGE_SIZE } from '../../constants/layout'
 import Home from '../page'
 
 // Mock the images lib
@@ -73,7 +74,12 @@ describe('Image Generation Logic', () => {
 
       // Wait for debounced generation to complete
       await waitFor(() => {
-        expect(imagesLib.saveImage).toHaveBeenCalledWith('test prompt', 'https://example.com/generated-image.jpg', 384, 1500) // 1024/2 - 128 = 384
+        expect(imagesLib.saveImage).toHaveBeenCalledWith(
+          'test prompt', 
+          'https://example.com/generated-image.jpg', 
+          1024/2 - IMAGE_SIZE/2, // Center X: window width / 2 - half image width
+          CANVAS_HEIGHT/2         // Center Y: canvas height / 2
+        )
       }, { timeout: 1000 })
 
       // Verify updateImage was NOT called
@@ -183,8 +189,8 @@ describe('Image Generation Logic', () => {
         expect(imagesLib.saveImage).toHaveBeenCalledWith(
           'original prompt',
           'https://example.com/original-image.jpg',
-          286, // Smart clone position: 256 + 30 = 286 (to the right)
-          0    // Same Y position as original
+          IMAGE_SIZE + 30, // Smart clone position: image width + 30px offset (to the right)
+          0                // Same Y position as original
         )
       })
 

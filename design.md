@@ -35,7 +35,7 @@ AI generation will be provided by OpenAI for prompt variation and fal.ai for fas
 
 Both AI services require API keys which should be treated as secrets and therefore cannot be used directly in the client-side code. This requires some form of proxying to a server.
 
-For OpenAI, the client can send requests to the server which can make authenticated requests to OpenAI and return the results to the client. These could be streamed, though the use case likely doesn't require that. Given the tech stack decision, these requests still likely go through Vercel edge functions, or Vercel's AI package.
+For OpenAI, the client can send requests to the server which can make authenticated requests to OpenAI and return the results to the client. These could be streamed, though the use case likely doesn't require that. Given the tech stack decision, these requests would go through Vercel as edge functions, and can lean on Vercel's AI SDK for streamlined simplicity.
 
 For Fal, latency should be as low as possible. Fal offers solutions to address this via their SDK and proxy server concept. Simply put, the proxy sever handles authentication that provides the client with a short-lived web token so that the client can interact over websockets directly with Fal's optimized inference servers. Using their SDK is recommended to handle the non-differentiating heavy lifting of token upkeep and streaming connection management. As discussed, for the sake of expediency, their out of the box next.js approach will be used instead of implementing and hosting a proxy server in Python.
 
@@ -109,11 +109,29 @@ Considerations:
 Dragging bounds
 Cloning near bounds
 
+### Story 5: User can easily generate variations on an image
+
+Hovering over an image shows a "magic" button.
+When clicked, 4 new images appear with variations on the base image.
+Refreshing preserves new images.
+
+Considerations:
+Layout and bounds
+Variations should appear almost immediately
+Handling generative response errors
+Ensure API key hygiene
+Protect exposed api routes (deferred)
+
+Generative Considerations:
+Model selection, cognitive requirements are low, speed is valued
+Prompting, experiment with JSON responses compared to simple newline delineated text responses with single or few shot examples
+
 
 ## Further exploration
 
-- Controlling image generation with ControlNet
 - Real-time collaboration
+- Controlling image generation with ControlNet
 - Separate canvases into multiple project pages
 - Annotation and favoriting of images
 - Full size image download
+- Pre-generate variation prompts (and possibly images) for immediate feedback
