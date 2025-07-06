@@ -1,7 +1,7 @@
 import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import * as imagesLib from '../../lib/images'
 import * as imageGeneration from '../../lib/imageGeneration'
-import { CANVAS_HEIGHT, IMAGE_SIZE, TOP_GUTTER } from '../../constants/layout'
+import { IMAGE_SIZE, TOP_GUTTER } from '../../constants/layout'
 import Home from '../page'
 
 // Mock the images lib
@@ -32,39 +32,39 @@ describe('Image Generation Logic', () => {
   beforeEach(() => {
     // Reset all mocks before each test
     jest.clearAllMocks()
-    
+
     // Mock window.innerWidth for consistent test results
     Object.defineProperty(window, 'innerWidth', {
       writable: true,
       configurable: true,
       value: 1024,
     })
-    
+
     // Mock successful image generation
     mockGenerateImageWithFal.mockResolvedValue('https://example.com/generated-image.jpg')
-    
-    // Mock successful position updates
-    ;(imagesLib.updateImagePosition as jest.Mock).mockResolvedValue(true)
+
+      // Mock successful position updates
+      ; (imagesLib.updateImagePosition as jest.Mock).mockResolvedValue(true)
   })
 
   describe('New image case (no existing image)', () => {
     beforeEach(() => {
       // Mock no existing images
-      ;(imagesLib.loadAllImages as jest.Mock).mockResolvedValue([])
-      ;(imagesLib.saveImage as jest.Mock).mockResolvedValue({
-        id: 'new-image-id',
-        prompt: 'test prompt',
-        image_url: 'https://example.com/generated-image.jpg',
-        position_x: 0,
-        position_y: 0,
-        created_at: '2023-01-01T00:00:00Z',
-        updated_at: '2023-01-01T00:00:00Z',
-      })
+      ; (imagesLib.loadAllImages as jest.Mock).mockResolvedValue([])
+        ; (imagesLib.saveImage as jest.Mock).mockResolvedValue({
+          id: 'new-image-id',
+          prompt: 'test prompt',
+          image_url: 'https://example.com/generated-image.jpg',
+          position_x: 0,
+          position_y: 0,
+          created_at: '2023-01-01T00:00:00Z',
+          updated_at: '2023-01-01T00:00:00Z',
+        })
     })
 
     it('should call saveImage when no selectedImageId exists', async () => {
       render(<Home />)
-      
+
       // Wait for loading to complete
       await waitFor(() => {
         expect(screen.queryByText('Loading...')).not.toBeInTheDocument()
@@ -72,15 +72,15 @@ describe('Image Generation Logic', () => {
 
       // Type a prompt (auto-generation happens after 500ms debounce)
       const input = screen.getByPlaceholderText('Type to generate an image...')
-      
+
       fireEvent.change(input, { target: { value: 'test prompt' } })
 
       // Wait for debounced generation to complete
       await waitFor(() => {
         expect(imagesLib.saveImage).toHaveBeenCalledWith(
-          'test prompt', 
-          'https://example.com/generated-image.jpg', 
-          1024/2 - IMAGE_SIZE/2, // Center X: window width / 2 - half image width
+          'test prompt',
+          'https://example.com/generated-image.jpg',
+          1024 / 2 - IMAGE_SIZE / 2, // Center X: window width / 2 - half image width
           TOP_GUTTER              // Top gutter position
         )
       }, { timeout: 1000 })
@@ -93,7 +93,7 @@ describe('Image Generation Logic', () => {
   describe('Existing image case (selectedImageId exists)', () => {
     beforeEach(() => {
       // Mock existing images array
-      ;(imagesLib.loadAllImages as jest.Mock).mockResolvedValue([{
+      ; (imagesLib.loadAllImages as jest.Mock).mockResolvedValue([{
         id: 'existing-image-id',
         prompt: 'existing prompt',
         image_url: 'https://example.com/existing-image.jpg',
@@ -102,20 +102,20 @@ describe('Image Generation Logic', () => {
         created_at: '2023-01-01T00:00:00Z',
         updated_at: '2023-01-01T00:00:00Z',
       }])
-      ;(imagesLib.updateImage as jest.Mock).mockResolvedValue({
-        id: 'existing-image-id',
-        prompt: 'updated prompt',
-        image_url: 'https://example.com/generated-image.jpg',
-        position_x: 0,
-        position_y: 0,
-        created_at: '2023-01-01T00:00:00Z',
-        updated_at: '2023-01-01T00:00:01Z',
-      })
+        ; (imagesLib.updateImage as jest.Mock).mockResolvedValue({
+          id: 'existing-image-id',
+          prompt: 'updated prompt',
+          image_url: 'https://example.com/generated-image.jpg',
+          position_x: 0,
+          position_y: 0,
+          created_at: '2023-01-01T00:00:00Z',
+          updated_at: '2023-01-01T00:00:01Z',
+        })
     })
 
     it('should call updateImage when selectedImageId exists', async () => {
       render(<Home />)
-      
+
       // Wait for loading to complete and existing image to load
       await waitFor(() => {
         expect(screen.queryByText('Loading...')).not.toBeInTheDocument()
@@ -129,14 +129,14 @@ describe('Image Generation Logic', () => {
 
       // Change prompt (auto-generation happens after 500ms debounce)
       const input = screen.getByDisplayValue('existing prompt')
-      
+
       fireEvent.change(input, { target: { value: 'updated prompt' } })
 
       // Wait for debounced generation to complete
       await waitFor(() => {
         expect(imagesLib.updateImage).toHaveBeenCalledWith(
-          'existing-image-id', 
-          'updated prompt', 
+          'existing-image-id',
+          'updated prompt',
           'https://example.com/generated-image.jpg'
         )
       }, { timeout: 1000 })
@@ -149,7 +149,7 @@ describe('Image Generation Logic', () => {
   describe('Clone functionality', () => {
     beforeEach(() => {
       // Mock existing image to clone
-      ;(imagesLib.loadAllImages as jest.Mock).mockResolvedValue([{
+      ; (imagesLib.loadAllImages as jest.Mock).mockResolvedValue([{
         id: 'original-image-id',
         prompt: 'original prompt',
         image_url: 'https://example.com/original-image.jpg',
@@ -162,7 +162,7 @@ describe('Image Generation Logic', () => {
 
     it('should clone image with correct data and auto-select it', async () => {
       // Mock the cloned image response
-      ;(imagesLib.saveImage as jest.Mock).mockResolvedValue({
+      ; (imagesLib.saveImage as jest.Mock).mockResolvedValue({
         id: 'cloned-image-id',
         prompt: 'original prompt', // Same prompt as original
         image_url: 'https://example.com/original-image.jpg', // Same URL
@@ -173,7 +173,7 @@ describe('Image Generation Logic', () => {
       })
 
       render(<Home />)
-      
+
       // Wait for loading to complete and original image to load
       await waitFor(() => {
         expect(screen.queryByText('Loading...')).not.toBeInTheDocument()
@@ -182,7 +182,7 @@ describe('Image Generation Logic', () => {
       // Find the clone button (should be hidden initially, visible on hover)
       const imageContainer = screen.getByRole('img').closest('div')
       expect(imageContainer).toBeInTheDocument()
-      
+
       // Find and click the clone button
       const cloneButton = screen.getByTitle('Clone image')
       fireEvent.click(cloneButton)
@@ -206,12 +206,12 @@ describe('Image Generation Logic', () => {
 
     it('should handle clone errors gracefully', async () => {
       // Mock clone failure
-      ;(imagesLib.saveImage as jest.Mock).mockRejectedValue(new Error('Database error'))
-      
+      ; (imagesLib.saveImage as jest.Mock).mockRejectedValue(new Error('Database error'))
+
       const consoleSpy = jest.spyOn(console, 'error').mockImplementation()
 
       render(<Home />)
-      
+
       await waitFor(() => {
         expect(screen.queryByText('Loading...')).not.toBeInTheDocument()
       })
@@ -231,7 +231,7 @@ describe('Image Generation Logic', () => {
   describe('Delete functionality', () => {
     beforeEach(() => {
       // Mock existing images array with multiple images
-      ;(imagesLib.loadAllImages as jest.Mock).mockResolvedValue([
+      ; (imagesLib.loadAllImages as jest.Mock).mockResolvedValue([
         {
           id: 'image-1',
           prompt: 'first image',
@@ -255,10 +255,10 @@ describe('Image Generation Logic', () => {
 
     it('should delete image and remove from UI', async () => {
       // Mock successful delete
-      ;(imagesLib.deleteImage as jest.Mock).mockResolvedValue(true)
+      ; (imagesLib.deleteImage as jest.Mock).mockResolvedValue(true)
 
       render(<Home />)
-      
+
       // Wait for loading to complete
       await waitFor(() => {
         expect(screen.queryByText('Loading...')).not.toBeInTheDocument()
@@ -288,10 +288,10 @@ describe('Image Generation Logic', () => {
 
     it('should handle deleting selected image by selecting another', async () => {
       // Mock successful delete
-      ;(imagesLib.deleteImage as jest.Mock).mockResolvedValue(true)
+      ; (imagesLib.deleteImage as jest.Mock).mockResolvedValue(true)
 
       render(<Home />)
-      
+
       // Wait for loading to complete (first image auto-selected)
       await waitFor(() => {
         expect(screen.queryByText('Loading...')).not.toBeInTheDocument()
@@ -321,7 +321,7 @@ describe('Image Generation Logic', () => {
 
     it('should clear prompt when deleting last image', async () => {
       // Mock only one image
-      ;(imagesLib.loadAllImages as jest.Mock).mockResolvedValue([{
+      ; (imagesLib.loadAllImages as jest.Mock).mockResolvedValue([{
         id: 'only-image',
         prompt: 'only image',
         image_url: 'https://example.com/only-image.jpg',
@@ -330,12 +330,12 @@ describe('Image Generation Logic', () => {
         created_at: '2023-01-01T00:00:00Z',
         updated_at: '2023-01-01T00:00:00Z',
       }])
-      
-      // Mock successful delete
-      ;(imagesLib.deleteImage as jest.Mock).mockResolvedValue(true)
+
+        // Mock successful delete
+        ; (imagesLib.deleteImage as jest.Mock).mockResolvedValue(true)
 
       render(<Home />)
-      
+
       // Wait for loading and verify image is selected
       await waitFor(() => {
         expect(screen.queryByText('Loading...')).not.toBeInTheDocument()
@@ -362,12 +362,12 @@ describe('Image Generation Logic', () => {
 
     it('should handle delete errors gracefully', async () => {
       // Mock delete failure
-      ;(imagesLib.deleteImage as jest.Mock).mockRejectedValue(new Error('Database error'))
-      
+      ; (imagesLib.deleteImage as jest.Mock).mockRejectedValue(new Error('Database error'))
+
       const consoleSpy = jest.spyOn(console, 'error').mockImplementation()
 
       render(<Home />)
-      
+
       await waitFor(() => {
         expect(screen.queryByText('Loading...')).not.toBeInTheDocument()
       })
@@ -389,10 +389,10 @@ describe('Image Generation Logic', () => {
 
     it('should handle delete when database returns false', async () => {
       // Mock delete returning false (failed but no exception)
-      ;(imagesLib.deleteImage as jest.Mock).mockResolvedValue(false)
+      ; (imagesLib.deleteImage as jest.Mock).mockResolvedValue(false)
 
       render(<Home />)
-      
+
       await waitFor(() => {
         expect(screen.queryByText('Loading...')).not.toBeInTheDocument()
       })
@@ -416,7 +416,7 @@ describe('Image Generation Logic', () => {
 
     beforeEach(() => {
       // Mock existing image to generate variations from
-      ;(imagesLib.loadAllImages as jest.Mock).mockResolvedValue([{
+      ; (imagesLib.loadAllImages as jest.Mock).mockResolvedValue([{
         id: 'original-image-id',
         prompt: 'a beautiful sunset',
         image_url: 'https://example.com/original-sunset.jpg',
@@ -448,18 +448,18 @@ describe('Image Generation Logic', () => {
 
       // Mock saveImage to return unique IDs for each variation
       let saveCallCount = 0
-      ;(imagesLib.saveImage as jest.Mock).mockImplementation((prompt, url, x, y) => {
-        saveCallCount++
-        return Promise.resolve({
-          id: `variation-${saveCallCount}`,
-          prompt,
-          image_url: url,
-          position_x: x,
-          position_y: y,
-          created_at: '2023-01-01T00:00:01Z',
-          updated_at: '2023-01-01T00:00:01Z',
+        ; (imagesLib.saveImage as jest.Mock).mockImplementation((prompt, url, x, y) => {
+          saveCallCount++
+          return Promise.resolve({
+            id: `variation-${saveCallCount}`,
+            prompt,
+            image_url: url,
+            position_x: x,
+            position_y: y,
+            created_at: '2023-01-01T00:00:01Z',
+            updated_at: '2023-01-01T00:00:01Z',
+          })
         })
-      })
     })
 
     afterEach(() => {
@@ -468,7 +468,7 @@ describe('Image Generation Logic', () => {
 
     it('should generate 4 variations when magic button is clicked', async () => {
       render(<Home />)
-      
+
       // Wait for loading to complete and original image to load
       await waitFor(() => {
         expect(screen.queryByText('Loading...')).not.toBeInTheDocument()
@@ -559,7 +559,7 @@ describe('Image Generation Logic', () => {
       const consoleSpy = jest.spyOn(console, 'error').mockImplementation()
 
       render(<Home />)
-      
+
       await waitFor(() => {
         expect(screen.queryByText('Loading...')).not.toBeInTheDocument()
       })
@@ -588,7 +588,7 @@ describe('Image Generation Logic', () => {
 
     it('should position variations with coordinate calculations', async () => {
       render(<Home />)
-      
+
       await waitFor(() => {
         expect(screen.queryByText('Loading...')).not.toBeInTheDocument()
       })

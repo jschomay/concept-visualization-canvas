@@ -17,7 +17,17 @@ interface ImageTileProps {
 export default function ImageTile({ image, isSelected, isGenerating, onSelect, onClone, onDelete, onPositionChange, onGenerateVariations }: ImageTileProps) {
   const [isDragging, setIsDragging] = useState(false)
   const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 })
+  const [isImageLoaded, setIsImageLoaded] = useState(false)
   const dragRef = useRef({ startX: 0, startY: 0, initialX: 0, initialY: 0 })
+
+  // Reset image loaded state when URL changes
+  useEffect(() => {
+    setIsImageLoaded(false)
+  }, [image.image_url])
+
+  const handleImageLoad = () => {
+    setIsImageLoaded(true)
+  }
 
   const handleCloneClick = (e: React.MouseEvent) => {
     e.stopPropagation()
@@ -125,8 +135,9 @@ export default function ImageTile({ image, isSelected, isGenerating, onSelect, o
               src={image.image_url}
               alt={image.prompt}
               className="w-full h-auto"
+              onLoad={handleImageLoad}
             />
-            {isGenerating && (
+            {(isGenerating || !isImageLoaded) && (
               <div className="absolute inset-0 backdrop-blur-xs flex items-center justify-center">
                 <div className="w-16 h-16 border-4 border-white/40 rounded-full animate-spin border-t-white shadow-lg shadow-white/20"></div>
                 <div className="absolute inset-0 flex items-center justify-center">
