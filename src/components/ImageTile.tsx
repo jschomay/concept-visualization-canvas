@@ -40,6 +40,11 @@ export default function ImageTile({ image, isSelected, isGenerating, onSelect, o
       return
     }
 
+    // Don't start drag if this is a temp image
+    if (image.id.startsWith('temp-')) {
+      return
+    }
+
     e.preventDefault()
     setIsDragging(true)
 
@@ -141,14 +146,16 @@ export default function ImageTile({ image, isSelected, isGenerating, onSelect, o
           </div>
         )}
 
-        {/* Delete button - visible on hover, top-left */}
-        <button
-          className="absolute top-2 left-2 bg-white bg-opacity-90 hover:bg-red-500 hover:text-white rounded-full p-2 opacity-0 group-hover:opacity-100 transition-all cursor-pointer"
-          onClick={handleDeleteClick}
-          title="Delete image"
-        >
-          <Trash2 size={16} />
-        </button>
+        {/* Delete button - visible on hover, top-left (hidden for temp images) */}
+        {!image.id.startsWith('temp-') && (
+          <button
+            className="absolute top-2 left-2 bg-white bg-opacity-90 hover:bg-red-500 hover:text-white rounded-full p-2 opacity-0 group-hover:opacity-100 transition-all cursor-pointer"
+            onClick={handleDeleteClick}
+            title="Delete image"
+          >
+            <Trash2 size={16} />
+          </button>
+        )}
 
         {/* Clone button - visible on hover, top-right */}
         <button
