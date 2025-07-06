@@ -125,9 +125,9 @@ export default function ImageTile({ image, isSelected, isGenerating, onSelect, o
       }}
     >
       <div
-        className={`rounded-lg overflow-hidden ${isDragging
+        className={`rounded-lg overflow-hidden transition-transform duration-200 ${isDragging
           ? 'cursor-grabbing opacity-75'
-          : 'cursor-grab'
+          : 'cursor-grab hover:scale-105'
           } ${isSelected
             ? 'shadow-lg shadow-gray-800/80'
             : 'hover:shadow-md shadow-gray-600/50'
@@ -174,36 +174,42 @@ export default function ImageTile({ image, isSelected, isGenerating, onSelect, o
           </button>
         )}
 
-        {/* Clone button - visible on hover, top-right */}
-        <button
-          className="absolute top-2 right-2 bg-white bg-opacity-90 hover:bg-gray-200 rounded-full p-2 opacity-0 group-hover:opacity-100 transition-all cursor-pointer"
-          onClick={handleCloneClick}
-          title="Clone image"
-        >
-          <Copy size={16} />
-        </button>
+        {/* Clone button - visible on hover, top-right (hidden for temp images) */}
+        {!image.id.startsWith('temp-') && (
+          <button
+            className="absolute top-2 right-2 bg-white bg-opacity-90 hover:bg-gray-200 rounded-full p-2 opacity-0 group-hover:opacity-100 transition-all cursor-pointer"
+            onClick={handleCloneClick}
+            title="Clone image"
+          >
+            <Copy size={16} />
+          </button>
+        )}
 
-        {/* Magic variations button - visible on hover, bottom-right */}
-        <button
-          className="absolute bottom-2 right-2 bg-white bg-opacity-90 hover:bg-purple-500 hover:text-white rounded-full p-2 opacity-0 group-hover:opacity-100 transition-all cursor-pointer"
-          onClick={handleVariationsClick}
-          title="Generate variations"
-        >
-          <Sparkles size={16} />
-        </button>
+        {/* Magic variations button - visible on hover, bottom-right (hidden for temp images) */}
+        {!image.id.startsWith('temp-') && (
+          <button
+            className="absolute bottom-2 right-2 bg-white bg-opacity-90 hover:bg-purple-500 hover:text-white rounded-full p-2 opacity-0 group-hover:opacity-100 transition-all cursor-pointer"
+            onClick={handleVariationsClick}
+            title="Generate variations"
+          >
+            <Sparkles size={16} />
+          </button>
+        )}
 
-        {/* Pin button - visible on hover or when pinned, bottom-left */}
-        <button
-          className={`absolute bottom-2 left-2 rounded-full p-2 transition-all cursor-pointer ${
-            image.pinned 
-              ? 'bg-blue-500 text-white hover:bg-blue-600 opacity-100' 
-              : 'bg-white bg-opacity-90 hover:bg-blue-500 hover:text-white opacity-0 group-hover:opacity-100'
-          }`}
-          onClick={handlePinClick}
-          title={image.pinned ? 'Unpin image' : 'Pin image'}
-        >
-          <Pin size={16} />
-        </button>
+        {/* Pin button - visible on hover or when pinned, bottom-left (hidden for temp images) */}
+        {!image.id.startsWith('temp-') && (
+          <button
+            className={`absolute bottom-2 left-2 rounded-full p-2 transition-all cursor-pointer ${
+              image.pinned 
+                ? 'bg-blue-500 text-white hover:bg-blue-600 opacity-100' 
+                : 'bg-white bg-opacity-90 hover:bg-blue-500 hover:text-white opacity-0 group-hover:opacity-100'
+            }`}
+            onClick={handlePinClick}
+            title={image.pinned ? 'Unpin image' : 'Pin image'}
+          >
+            <Pin size={16} />
+          </button>
+        )}
 
       </div>
 

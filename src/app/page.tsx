@@ -25,6 +25,7 @@ export default function Home() {
   const [selectedImageId, setSelectedImageId] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const timeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const loadPreviousImages = async () => {
@@ -75,7 +76,7 @@ export default function Home() {
     // Set new timeout for generation
     timeoutRef.current = setTimeout(() => {
       generateImage(newPrompt);
-    }, 500);
+    }, 200);
   };
 
   const handleImageSelect = (imageId: string) => {
@@ -586,6 +587,9 @@ export default function Home() {
       return newMap;
     });
 
+    // Scroll to top
+    scrollContainerRef.current?.scrollTo({ top: 0, behavior: 'smooth' });
+
     // Persist positions to database in background
     try {
       await Promise.all(
@@ -618,7 +622,7 @@ export default function Home() {
 
     // Update local state to keep only pinned images
     const newImagesMap = new Map();
-    
+
     // Keep pinned images
     imagesToKeep.forEach(image => {
       newImagesMap.set(image.id, image);
@@ -641,6 +645,9 @@ export default function Home() {
     }
 
     setImagesMap(newImagesMap);
+
+    // Scroll to top
+    scrollContainerRef.current?.scrollTo({ top: 0, behavior: 'smooth' });
 
     // Delete unpinned real images from database in background
     try {
@@ -666,7 +673,7 @@ export default function Home() {
   }
 
   return (
-    <div className="w-screen h-screen overflow-auto bg-gray-50 relative">
+    <div ref={scrollContainerRef} className="w-screen h-screen overflow-auto relative">
       {/* Floating input at top */}
       <div className="w-1/2 fixed top-8 left-1/2 transform -translate-x-1/2 z-50">
         <div className="px-4 py-4 bg-white/90 backdrop-blur-sm rounded-lg shadow-lg border border-gray-200">
@@ -700,7 +707,7 @@ export default function Home() {
       </div>
 
       {/* Full canvas area */}
-      <div className="relative w-full" style={{ height: `${CANVAS_HEIGHT}px` }}>
+      <div className="relative w-full bg-gradient-to-b from-white to-gray-200" style={{ height: `${CANVAS_HEIGHT}px` }}>
         {Array.from(imagesMap.values()).map(image => (
           <ImageTile
             key={image.id}
