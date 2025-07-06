@@ -631,11 +631,12 @@ describe('Image Generation Logic', () => {
         expect.any(Number)
       )
 
-      // Verify all variations share the same Y coordinate as the original (100)
+      // Verify 2x2 grid positioning: top row at Y=100, bottom row at Y=320 (100 + IMAGE_SIZE + spacing)
       const saveImageCalls = (imagesLib.saveImage as jest.Mock).mock.calls
-      saveImageCalls.forEach(call => {
-        expect(call[3]).toBe(100) // y position should be 100 (same as original)
-      })
+      expect(saveImageCalls[0][3]).toBe(100) // First variation (top-left): Y = 100
+      expect(saveImageCalls[1][3]).toBe(100) // Second variation (top-right): Y = 100 
+      expect(saveImageCalls[2][3]).toBe(320) // Third variation (bottom-left): Y = 100 + 200 + 20 = 320
+      expect(saveImageCalls[3][3]).toBe(320) // Fourth variation (bottom-right): Y = 100 + 200 + 20 = 320
     })
   })
 })

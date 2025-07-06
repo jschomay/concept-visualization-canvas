@@ -195,30 +195,35 @@ export default function Home() {
 
     const positions: { x: number, y: number }[] = [];
 
-    // Calculate space needed for 4 variations horizontally
-    const totalWidth = 4 * imageWidth + 3 * spacing;
+    // Calculate space needed for 2x2 grid (2 images wide, 2 images tall)
+    const gridWidth = 2 * imageWidth + spacing;
     const canvasWidth = window.innerWidth;
 
-    // Check if we can place variations to the right of the original image
+    // Check if we can place 2x2 grid to the right of the original image
     const spaceToRight = canvasWidth - (originalImage.position_x + imageWidth);
-    const placeToRight = spaceToRight >= totalWidth;
+    const placeToRight = spaceToRight >= gridWidth;
+
+    let startX: number;
+    let startY: number;
 
     if (placeToRight) {
-      // Place variations to the right of the original image
-      const startX = originalImage.position_x + imageWidth + spacing;
-      for (let i = 0; i < 4; i++) {
-        positions.push({
-          x: startX + i * (imageWidth + spacing),
-          y: originalImage.position_y
-        });
-      }
+      // Place 2x2 grid to the right of the original image
+      startX = originalImage.position_x + imageWidth + spacing;
+      startY = originalImage.position_y;
     } else {
-      // Place variations to the left of the original image
-      const startX = originalImage.position_x - spacing - totalWidth;
-      for (let i = 0; i < 4; i++) {
+      // Place 2x2 grid to the left of the original image
+      startX = Math.max(0, originalImage.position_x - spacing - gridWidth);
+      startY = originalImage.position_y;
+    }
+
+    // Create 2x2 grid positions
+    // Top row: positions 0 and 1
+    // Bottom row: positions 2 and 3
+    for (let row = 0; row < 2; row++) {
+      for (let col = 0; col < 2; col++) {
         positions.push({
-          x: Math.max(0, startX + i * (imageWidth + spacing)),
-          y: originalImage.position_y
+          x: startX + col * (imageWidth + spacing),
+          y: startY + row * (imageWidth + spacing)
         });
       }
     }
