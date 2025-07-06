@@ -1,7 +1,7 @@
 import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import * as imagesLib from '../../lib/images'
 import * as imageGeneration from '../../lib/imageGeneration'
-import { CANVAS_HEIGHT, IMAGE_SIZE } from '../../constants/layout'
+import { CANVAS_HEIGHT, IMAGE_SIZE, TOP_GUTTER } from '../../constants/layout'
 import Home from '../page'
 
 // Mock the images lib
@@ -81,7 +81,7 @@ describe('Image Generation Logic', () => {
           'test prompt', 
           'https://example.com/generated-image.jpg', 
           1024/2 - IMAGE_SIZE/2, // Center X: window width / 2 - half image width
-          CANVAS_HEIGHT/2         // Center Y: canvas height / 2
+          TOP_GUTTER              // Top gutter position
         )
       }, { timeout: 1000 })
 

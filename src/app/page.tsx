@@ -5,7 +5,8 @@ import { fal } from "@fal-ai/client";
 import { saveImage, loadAllImages, updateImage, deleteImage, updateImagePosition, Image } from "../lib/images";
 import { generateImageWithFal } from "../lib/imageGeneration";
 import ImageTile from "../components/ImageTile";
-import { CANVAS_HEIGHT, IMAGE_SIZE } from "../constants/layout";
+import { CANVAS_HEIGHT, IMAGE_SIZE, TOP_GUTTER, BLANK_CANVAS_IMAGE, PLACEHOLDER_PROMPT } from "../constants/layout";
+import { Grid, Trash2 } from "lucide-react";
 
 // Extended image type with local state for race condition management
 type LocalImage = Image & {
@@ -107,14 +108,14 @@ export default function Home() {
 
   const createPlaceholderImage = (): LocalImage => {
     const centerX = window.innerWidth / 2 - IMAGE_SIZE / 2;
-    const centerY = CANVAS_HEIGHT / 2;
+    const topY = TOP_GUTTER;
 
     return {
       id: 'temp-placeholder',
-      prompt: '',
-      image_url: '',
+      prompt: PLACEHOLDER_PROMPT,
+      image_url: BLANK_CANVAS_IMAGE,
       position_x: centerX,
-      position_y: centerY,
+      position_y: topY,
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
       isGenerating: false,
@@ -164,6 +165,28 @@ export default function Home() {
     }
 
     return { x: newX, y: newY };
+  };
+
+  const calculateGridPositions = (images: LocalImage[]): { id: string, x: number, y: number }[] => {
+    const padding = 20;
+    const startX = padding;
+    const startY = TOP_GUTTER;
+    
+    // Calculate how many images fit per row
+    const availableWidth = window.innerWidth - (2 * padding);
+    const imageWithPadding = IMAGE_SIZE + padding;
+    const imagesPerRow = Math.floor(availableWidth / imageWithPadding);
+    
+    return images.map((image, index) => {
+      const row = Math.floor(index / imagesPerRow);
+      const col = index % imagesPerRow;
+      
+      return {
+        id: image.id,
+        x: startX + (col * imageWithPadding),
+        y: startY + (row * imageWithPadding)
+      };
+    });
   };
 
   const getVariationPositions = (originalImage: LocalImage): { x: number, y: number }[] => {
@@ -543,6 +566,60 @@ export default function Home() {
     }
   };
 
+  const handleArrangeGrid = async () => {
+    const allImages = Array.from(imagesMap.values());
+    const gridPositions = calculateGridPositions(allImages);
+    
+    // Update local state immediately for smooth UX
+    setImagesMap(prev => {
+      const newMap = new Map(prev);
+      gridPositions.forEach(({ id, x, y }) => {
+        const image = newMap.get(id);
+        if (image) {
+          newMap.set(id, { ...image, position_x: x, position_y: y });
+        }
+      });
+      return newMap;
+    });
+    
+    // Persist positions to database in background
+    try {
+      await Promise.all(
+        gridPositions.map(async ({ id, x, y }) => {
+          if (!id.startsWith('temp-')) {
+            await updateImagePosition(id, x, y);
+          }
+        })
+      );
+    } catch (error) {
+      console.error('Error persisting grid positions:', error);
+    }
+  };
+
+  const handleClearAll = async () => {
+    const allImages = Array.from(imagesMap.values());
+    
+    // Clear local state immediately for instant feedback
+    setImagesMap(new Map());
+    
+    // Create placeholder and select it
+    const placeholder = createPlaceholderImage();
+    setImagesMap(new Map([['temp-placeholder', placeholder]]));
+    setSelectedImageId('temp-placeholder');
+    setPrompt('');
+    
+    // Delete all real images from database in background
+    try {
+      await Promise.all(
+        allImages
+          .filter(image => !image.id.startsWith('temp-')) // Only delete real images
+          .map(image => deleteImage(image.id))
+      );
+    } catch (error) {
+      console.error('Error clearing all images:', error);
+    }
+  };
+
 
   if (isLoading) {
     return (
@@ -569,6 +646,25 @@ export default function Home() {
             className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
           />
         </div>
+      </div>
+
+      {/* Action buttons - top right */}
+      <div className="fixed top-8 right-8 z-50 flex gap-2">
+        <button
+          onClick={handleArrangeGrid}
+          className="bg-white/90 backdrop-blur-sm hover:bg-gray-100 rounded-lg p-3 shadow-lg border border-gray-200 transition-all"
+          title="Arrange images in grid"
+        >
+          <Grid size={20} />
+        </button>
+        
+        <button
+          onClick={handleClearAll}
+          className="bg-white/90 backdrop-blur-sm hover:bg-red-500 hover:text-white rounded-lg p-3 shadow-lg border border-gray-200 transition-all"
+          title="Clear all images"
+        >
+          <Trash2 size={20} />
+        </button>
       </div>
 
       {/* Full canvas area */}
