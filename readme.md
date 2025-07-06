@@ -3,6 +3,8 @@
 
 A web based application providing a fluid, organic and intuitive interface to facilitate rapid image generation exploration.
 
+[![App demo video](https://img.youtube.com/vi/RZwYJkxbkx8/0.jpg)](https://www.youtube.com/watch?v=RZwYJkxbkx8)
+
 ## Product design considerations
 
 (As interpreted by me)
