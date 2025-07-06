@@ -22,7 +22,6 @@ export default function Home() {
   const [prompt, setPrompt] = useState("");
   const [imagesMap, setImagesMap] = useState<Map<string, LocalImage>>(new Map());
   const [selectedImageId, setSelectedImageId] = useState<string | null>(null);
-  const [isGenerating, setIsGenerating] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const timeoutRef = useRef<NodeJS.Timeout | null>(null);
 
@@ -70,12 +69,6 @@ export default function Home() {
     // Clear existing timeout
     if (timeoutRef.current) {
       clearTimeout(timeoutRef.current);
-    }
-
-    // Don't generate for empty prompts
-    if (!newPrompt.trim()) {
-      setIsGenerating(false);
-      return;
     }
 
     // Set new timeout for generation
@@ -244,7 +237,7 @@ export default function Home() {
         clonePosition,
         true // shouldUpdateSelected
       );
-      
+
       if (!clonedImage) {
         // Remove temp clone if save failed and reset selection
         setImagesMap(prev => {
@@ -292,9 +285,9 @@ export default function Home() {
   };
 
   const saveAndReplaceTempImage = async (
-    tempId: string, 
-    prompt: string, 
-    imageUrl: string, 
+    tempId: string,
+    prompt: string,
+    imageUrl: string,
     position: { x: number, y: number },
     shouldUpdateSelected: boolean = false
   ) => {
@@ -308,7 +301,7 @@ export default function Home() {
           latestRequestTime: currentTempImage?.latestRequestTime || Date.now(),
           latestResponseTime: currentTempImage?.latestResponseTime || Date.now(),
         };
-        
+
         setImagesMap(prev => {
           const newMap = new Map(prev);
           newMap.delete(tempId);
@@ -438,7 +431,7 @@ export default function Home() {
       const tempData = Array.from({ length: 4 }, (_, index) => {
         const position = positions[index];
         const tempId = `temp-${Date.now()}-${Math.random()}-${index}`;
-        
+
         return {
           tempId,
           position,
@@ -576,9 +569,6 @@ export default function Home() {
             className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
           />
         </div>
-        {isGenerating && (
-          <div className="text-sm text-gray-500 text-center mt-2">Generating...</div>
-        )}
       </div>
 
       {/* Full canvas area */}
@@ -588,6 +578,7 @@ export default function Home() {
             key={image.id}
             image={image}
             isSelected={selectedImageId === image.id}
+            isGenerating={!!image.isGenerating}
             onSelect={handleImageSelect}
             onClone={handleClone}
             onDelete={handleDelete}

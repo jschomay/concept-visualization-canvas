@@ -6,6 +6,7 @@ import { CANVAS_HEIGHT, IMAGE_SIZE } from '../constants/layout'
 interface ImageTileProps {
   image: Image
   isSelected: boolean
+  isGenerating: boolean
   onSelect: (imageId: string) => void
   onClone: (imageId: string) => void
   onDelete: (imageId: string) => void
@@ -13,7 +14,7 @@ interface ImageTileProps {
   onGenerateVariations: (imageId: string) => void
 }
 
-export default function ImageTile({ image, isSelected, onSelect, onClone, onDelete, onPositionChange, onGenerateVariations }: ImageTileProps) {
+export default function ImageTile({ image, isSelected, isGenerating, onSelect, onClone, onDelete, onPositionChange, onGenerateVariations }: ImageTileProps) {
   const [isDragging, setIsDragging] = useState(false)
   const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 })
   const dragRef = useRef({ startX: 0, startY: 0, initialX: 0, initialY: 0 })
@@ -58,7 +59,7 @@ export default function ImageTile({ image, isSelected, onSelect, onClone, onDele
 
     const maxX = window.innerWidth - IMAGE_SIZE // Screen width - image width
     const maxY = CANVAS_HEIGHT - IMAGE_SIZE // Canvas height - image height
-    
+
     const newX = Math.max(0, Math.min(maxX, dragRef.current.initialX + deltaX))
     const newY = Math.max(0, Math.min(maxY, dragRef.current.initialY + deltaY))
 
@@ -96,8 +97,8 @@ export default function ImageTile({ image, isSelected, onSelect, onClone, onDele
   return (
     <div
       className={`absolute group rounded-lg overflow-hidden ${isDragging
-          ? 'cursor-grabbing opacity-75 z-50'
-          : 'cursor-grab'
+        ? 'cursor-grabbing opacity-75 z-50'
+        : 'cursor-grab'
         } ${isSelected
           ? 'shadow-lg shadow-gray-800/80 z-40'
           : 'hover:shadow-md shadow-gray-600/50'
@@ -117,20 +118,23 @@ export default function ImageTile({ image, isSelected, onSelect, onClone, onDele
             alt={image.prompt}
             className="w-full h-auto"
           />
-          {/* Loading overlay for when generating new version */}
-          {image.isGenerating && (
-            <div className="absolute inset-0 bg-black bg-opacity-30 flex items-center justify-center">
-              <div className="text-white text-sm">
-                <div className="animate-pulse">Updating...</div>
+          {isGenerating && (
+            <div className="absolute inset-0 backdrop-blur-xs flex items-center justify-center">
+              <div className="w-16 h-16 border-4 border-white/40 rounded-full animate-spin border-t-white shadow-lg shadow-white/20"></div>
+              <div className="absolute inset-0 flex items-center justify-center">
+                <div className="w-8 h-8 bg-white/80 rounded-full animate-pulse shadow-lg"></div>
               </div>
             </div>
           )}
         </div>
       ) : (
-        <div className="w-full bg-gray-200 flex items-center justify-center" style={{ height: `${IMAGE_SIZE}px` }}>
-          <div className="text-gray-500 text-sm text-center p-4">
-            <div className="animate-pulse">Generating...</div>
+        <div className="w-full bg-gray-200 flex flex-col items-center justify-center" style={{ height: `${IMAGE_SIZE}px` }}>
+          <div className="flex space-x-1">
+            <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></div>
+            <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></div>
+            <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></div>
           </div>
+          <div className="animate-pulse">Generating...</div>
         </div>
       )}
 
