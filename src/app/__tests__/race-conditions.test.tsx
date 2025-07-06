@@ -1,5 +1,4 @@
 import { render, screen, fireEvent, waitFor, act } from '@testing-library/react'
-import { fal } from '@fal-ai/client'
 import * as imagesLib from '../../lib/images'
 import * as imageGeneration from '../../lib/imageGeneration'
 import Home from '../page'

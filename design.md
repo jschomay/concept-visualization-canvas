@@ -126,6 +126,11 @@ Generative Considerations:
 Model selection, cognitive requirements are low, speed is valued
 Prompting, experiment with JSON responses compared to simple newline delineated text responses with single or few shot examples
 
+### Story 6: User can easily manage workspace
+
+Clicking a workspace arrange button organizes all images in a grid.
+Clicking a workspace clear button deletes all images.
+All changes are persisted.
 
 ## Further exploration
 

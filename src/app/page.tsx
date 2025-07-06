@@ -134,7 +134,7 @@ export default function Home() {
     } else {
       // Create placeholder if no images remain
       const placeholder = createPlaceholderImage();
-      setImagesMap(prev => new Map([['temp-placeholder', placeholder]]));
+      setImagesMap(new Map([['temp-placeholder', placeholder]]));
       setSelectedImageId('temp-placeholder');
       setPrompt('');
     }

@@ -15,7 +15,7 @@ const __dirname = dirname(__filename);
 config({ path: join(__dirname, '..', '.env.local') });
 
 // Import the generation logic directly
-import { generateVariations } from '../src/app/api/variations/route.ts';
+import { generateVariations } from '../src/lib/variations.ts';
 
 const testPrompts = [
   "a cat sitting on a windowsill",
