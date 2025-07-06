@@ -1,5 +1,5 @@
 import { Image } from '../lib/images'
-import { Copy, Trash2, Sparkles } from 'lucide-react'
+import { Copy, Trash2, Sparkles, Pin } from 'lucide-react'
 import { useState, useRef, useEffect, useCallback } from 'react'
 import { CANVAS_HEIGHT, IMAGE_SIZE } from '../constants/layout'
 
@@ -12,9 +12,10 @@ interface ImageTileProps {
   onDelete: (imageId: string) => void
   onPositionChange: (imageId: string, x: number, y: number) => void
   onGenerateVariations: (imageId: string) => void
+  onPin: (imageId: string, pinned: boolean) => void
 }
 
-export default function ImageTile({ image, isSelected, isGenerating, onSelect, onClone, onDelete, onPositionChange, onGenerateVariations }: ImageTileProps) {
+export default function ImageTile({ image, isSelected, isGenerating, onSelect, onClone, onDelete, onPositionChange, onGenerateVariations, onPin }: ImageTileProps) {
   const [isDragging, setIsDragging] = useState(false)
   const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 })
   const [isImageLoaded, setIsImageLoaded] = useState(false)
@@ -42,6 +43,11 @@ export default function ImageTile({ image, isSelected, isGenerating, onSelect, o
   const handleVariationsClick = (e: React.MouseEvent) => {
     e.stopPropagation()
     onGenerateVariations(image.id)
+  }
+
+  const handlePinClick = (e: React.MouseEvent) => {
+    e.stopPropagation()
+    onPin(image.id, !image.pinned)
   }
 
   const handleMouseDown = (e: React.MouseEvent) => {
@@ -184,6 +190,19 @@ export default function ImageTile({ image, isSelected, isGenerating, onSelect, o
           title="Generate variations"
         >
           <Sparkles size={16} />
+        </button>
+
+        {/* Pin button - visible on hover or when pinned, bottom-left */}
+        <button
+          className={`absolute bottom-2 left-2 rounded-full p-2 transition-all cursor-pointer ${
+            image.pinned 
+              ? 'bg-blue-500 text-white hover:bg-blue-600 opacity-100' 
+              : 'bg-white bg-opacity-90 hover:bg-blue-500 hover:text-white opacity-0 group-hover:opacity-100'
+          }`}
+          onClick={handlePinClick}
+          title={image.pinned ? 'Unpin image' : 'Pin image'}
+        >
+          <Pin size={16} />
         </button>
 
       </div>

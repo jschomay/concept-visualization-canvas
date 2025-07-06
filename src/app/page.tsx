@@ -595,27 +595,55 @@ export default function Home() {
     }
   };
 
+  const handlePin = (imageId: string, pinned: boolean) => {
+    setImagesMap(prev => {
+      const newMap = new Map(prev);
+      const image = newMap.get(imageId);
+      if (image) {
+        newMap.set(imageId, { ...image, pinned });
+      }
+      return newMap;
+    });
+  };
+
   const handleClearAll = async () => {
     const allImages = Array.from(imagesMap.values());
+    const imagesToDelete = allImages.filter(image => !image.pinned && !image.id.startsWith('temp-'));
+    const imagesToKeep = allImages.filter(image => image.pinned && !image.id.startsWith('temp-'));
 
-    // Clear local state immediately for instant feedback
-    setImagesMap(new Map());
+    // Update local state to keep only pinned images
+    const newImagesMap = new Map();
+    
+    // Keep pinned images
+    imagesToKeep.forEach(image => {
+      newImagesMap.set(image.id, image);
+    });
 
-    // Create placeholder and select it
-    const placeholder = createPlaceholderImage();
-    setImagesMap(new Map([['temp-placeholder', placeholder]]));
-    setSelectedImageId('temp-placeholder');
-    setPrompt('');
+    // Add placeholder if no pinned images remain
+    if (imagesToKeep.length === 0) {
+      const placeholder = createPlaceholderImage();
+      newImagesMap.set('temp-placeholder', placeholder);
+      setSelectedImageId('temp-placeholder');
+      setPrompt('');
+    } else {
+      // Select first pinned image if current selection is being deleted
+      const currentImage = imagesMap.get(selectedImageId || '');
+      if (!currentImage || (!currentImage.pinned && !currentImage.id.startsWith('temp-'))) {
+        const firstPinned = imagesToKeep[0];
+        setSelectedImageId(firstPinned.id);
+        setPrompt(firstPinned.prompt);
+      }
+    }
 
-    // Delete all real images from database in background
+    setImagesMap(newImagesMap);
+
+    // Delete unpinned real images from database in background
     try {
       await Promise.all(
-        allImages
-          .filter(image => !image.id.startsWith('temp-')) // Only delete real images
-          .map(image => deleteImage(image.id))
+        imagesToDelete.map(image => deleteImage(image.id))
       );
     } catch (error) {
-      console.error('Error clearing all images:', error);
+      console.error('Error clearing unpinned images:', error);
     }
   };
 
@@ -679,6 +707,7 @@ export default function Home() {
             onDelete={handleDelete}
             onPositionChange={handlePositionChange}
             onGenerateVariations={handleGenerateVariations}
+            onPin={handlePin}
           />
         ))}
       </div>

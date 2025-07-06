@@ -13,4 +13,5 @@ export type Image = {
   position_y: number
   created_at: string
   updated_at: string
+  pinned?: boolean
 }
