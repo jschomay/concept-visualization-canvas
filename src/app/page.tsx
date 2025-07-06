@@ -171,16 +171,16 @@ export default function Home() {
     const padding = 20;
     const startX = padding;
     const startY = TOP_GUTTER;
-    
+
     // Calculate how many images fit per row
     const availableWidth = window.innerWidth - (2 * padding);
     const imageWithPadding = IMAGE_SIZE + padding;
     const imagesPerRow = Math.floor(availableWidth / imageWithPadding);
-    
+
     return images.map((image, index) => {
       const row = Math.floor(index / imagesPerRow);
       const col = index % imagesPerRow;
-      
+
       return {
         id: image.id,
         x: startX + (col * imageWithPadding),
@@ -332,8 +332,7 @@ export default function Home() {
           return newMap;
         });
 
-        // Update selectedImageId if this was the selected temp
-        if (shouldUpdateSelected && tempId === selectedImageId) {
+        if (shouldUpdateSelected) {
           setSelectedImageId(savedImage.id);
         }
 
@@ -569,7 +568,7 @@ export default function Home() {
   const handleArrangeGrid = async () => {
     const allImages = Array.from(imagesMap.values());
     const gridPositions = calculateGridPositions(allImages);
-    
+
     // Update local state immediately for smooth UX
     setImagesMap(prev => {
       const newMap = new Map(prev);
@@ -581,7 +580,7 @@ export default function Home() {
       });
       return newMap;
     });
-    
+
     // Persist positions to database in background
     try {
       await Promise.all(
@@ -598,16 +597,16 @@ export default function Home() {
 
   const handleClearAll = async () => {
     const allImages = Array.from(imagesMap.values());
-    
+
     // Clear local state immediately for instant feedback
     setImagesMap(new Map());
-    
+
     // Create placeholder and select it
     const placeholder = createPlaceholderImage();
     setImagesMap(new Map([['temp-placeholder', placeholder]]));
     setSelectedImageId('temp-placeholder');
     setPrompt('');
-    
+
     // Delete all real images from database in background
     try {
       await Promise.all(
@@ -657,7 +656,7 @@ export default function Home() {
         >
           <Grid size={20} />
         </button>
-        
+
         <button
           onClick={handleClearAll}
           className="bg-white/90 backdrop-blur-sm hover:bg-red-500 hover:text-white rounded-lg p-3 shadow-lg border border-gray-200 transition-all"
